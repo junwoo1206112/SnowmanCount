@@ -1,0 +1,8 @@
+﻿<Solution>
+  <Project Path="SnowmanCount.UI.csproj" />
+  <Project Path="SnowmanCount.Data.csproj" />
+  <Project Path="SnowmanCount.Gameplay.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="SnowmanCount.Core.csproj" />
+</Solution>
