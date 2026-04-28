@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+using SnowmanCount.Core;
+
 namespace SnowmanCount.Gameplay
 {
     public class SwerveMovement : MonoBehaviour
@@ -9,17 +11,20 @@ namespace SnowmanCount.Gameplay
         [SerializeField] private float forwardSpeed = 5f;
         [SerializeField] private float swerveSpeed = 8f;
         [SerializeField] private float xBound = 4f;
+        public float XBound => xBound;
 
         private PlayerInput playerInput;
         private InputAction moveAction;
         private float swerveAmount;
         private bool isDragging;
+        private bool canSwerve;
 
         public float CurrentSpeed => forwardSpeed;
 
         private void Awake()
         {
             playerInput = GetComponent<PlayerInput>();
+
             if (playerInput != null)
             {
                 moveAction = playerInput.actions["Move"];
@@ -36,6 +41,19 @@ namespace SnowmanCount.Gameplay
             }
         }
 
+        private void Start()
+        {
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.OnStateChanged += OnGameStateChanged;
+                canSwerve = GameStateManager.Instance.CurrentState == GameState.Play;
+            }
+            else
+            {
+                canSwerve = false;
+            }
+        }
+
         private void OnDisable()
         {
             if (moveAction != null)
@@ -44,16 +62,28 @@ namespace SnowmanCount.Gameplay
                 moveAction.performed -= OnMovePerformed;
                 moveAction.canceled -= OnMoveCanceled;
             }
+
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.OnStateChanged -= OnGameStateChanged;
+            }
+        }
+
+        private void OnGameStateChanged(GameState newState)
+        {
+            canSwerve = newState == GameState.Play;
         }
 
         private void OnMoveStarted(InputAction.CallbackContext context)
         {
+            if (!canSwerve) return;
+
             isDragging = true;
         }
 
         private void OnMovePerformed(InputAction.CallbackContext context)
         {
-            if (!isDragging) return;
+            if (!isDragging || !canSwerve) return;
 
             Vector2 input = context.ReadValue<Vector2>();
             swerveAmount = input.x * swerveSpeed;
@@ -72,9 +102,12 @@ namespace SnowmanCount.Gameplay
 
         private void ApplySwerveOnly()
         {
+            if (!canSwerve) return;
+
             Vector3 pos = transform.position;
             pos.x += swerveAmount * Time.deltaTime;
             pos.x = Mathf.Clamp(pos.x, -xBound, xBound);
+            pos.y = 0f;
             transform.position = pos;
         }
     }

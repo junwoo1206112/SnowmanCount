@@ -10,13 +10,20 @@ namespace SnowmanCount.Gameplay
         [SerializeField] private string enemyType = "Flame";
 
         private CrowdController crowdController;
+        private EnemyAllClearDetector clearDetector;
         private bool hasTriggered;
+
+        public void SetEnemyCount(int count)
+        {
+            enemyCount = count;
+        }
 
         private void Start()
         {
             crowdController = FindFirstObjectByType<CrowdController>();
+            clearDetector = FindFirstObjectByType<EnemyAllClearDetector>();
 
-            for (int i = 0; i < enemyCount; i++)
+            for (int i = 0; i < transform.childCount && i < enemyCount; i++)
             {
                 Vector3 offset = new Vector3(
                     UnityEngine.Random.Range(-spreadRadius, spreadRadius),
@@ -24,6 +31,14 @@ namespace SnowmanCount.Gameplay
                     UnityEngine.Random.Range(-spreadRadius, spreadRadius)
                 );
                 transform.GetChild(i).localPosition = offset;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (clearDetector != null)
+            {
+                clearDetector.UnregisterEnemy();
             }
         }
 
@@ -37,7 +52,8 @@ namespace SnowmanCount.Gameplay
 
             if (crowdController != null)
             {
-                crowdController.ApplyMathOperation("-", enemyCount);
+                int damage = Mathf.Max(1, Mathf.RoundToInt(crowdController.CurrentCount * 0.1f));
+                crowdController.ApplyMathOperation("-", damage);
             }
 
             Destroy(gameObject);

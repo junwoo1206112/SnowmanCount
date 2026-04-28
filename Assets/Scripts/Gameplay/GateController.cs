@@ -44,7 +44,7 @@ namespace SnowmanCount.Gameplay
         {
             labelObject = new GameObject("GateLabel");
             labelObject.transform.SetParent(transform);
-            labelObject.transform.localPosition = new Vector3(0f, 0f, 0.51f);
+            labelObject.transform.localPosition = new Vector3(0f, 0f, -0.51f);
 
             TextMesh textMesh = labelObject.AddComponent<TextMesh>();
             textMesh.text = $"{operatorType}{value}";
@@ -53,12 +53,6 @@ namespace SnowmanCount.Gameplay
             textMesh.alignment = TextAlignment.Center;
             textMesh.color = Color.white;
             textMesh.characterSize = 0.08f;
-
-            labelObject.transform.localRotation = Quaternion.identity;
-        }
-
-        private void Update()
-        {
         }
 
         private void OnTriggerEnter(Collider other)

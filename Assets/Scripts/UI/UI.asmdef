@@ -1,7 +1,9 @@
 {
     "name": "SnowmanCount.UI",
     "rootNamespace": "SnowmanCount.UI",
-    "references": [],
+    "references": [
+        "SnowmanCount.Gameplay"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

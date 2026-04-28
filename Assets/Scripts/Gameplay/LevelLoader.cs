@@ -1,4 +1,5 @@
 using UnityEngine;
+
 using SnowmanCount.Core;
 using SnowmanCount.Data;
 using SnowmanCount.Data.Models;
@@ -9,16 +10,17 @@ namespace SnowmanCount.Gameplay
     {
         [Header("Prefab References")]
         [SerializeField] private GameObject gatePrefab;
-        [SerializeField] private GameObject finishPrefab;
 
         private ILevelDataProvider dataProvider;
 
-        private void Awake()
-        {
-        }
-
         private void Start()
         {
+            if (GameManager.Instance == null)
+            {
+                Debug.LogError("[LevelLoader] GameManager not found.");
+                return;
+            }
+
             dataProvider = GameManager.Instance.LevelDataProvider;
 
             if (dataProvider == null)
@@ -27,36 +29,115 @@ namespace SnowmanCount.Gameplay
                 return;
             }
 
-            LoadLevel(1);
-        }
-
-        public void LoadLevel(int levelNumber)
-        {
-            if (dataProvider == null)
-            {
-                Debug.LogError("[LevelLoader] Cannot load level: dataProvider is null");
-                return;
-            }
-
-            LevelData data = dataProvider.LoadLevel(levelNumber);
+            LevelData data = dataProvider.LoadLevel(GameManager.currentLevel);
 
             if (data == null)
             {
-                Debug.LogError($"[LevelLoader] Failed to load level {levelNumber}");
+                Debug.Log("[LevelLoader] No more levels. All levels cleared!");
+
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ShowAllLevelsClear();
+                }
+
                 return;
             }
+
+            WorldMover.ResetDistance();
+            SpawnLevel(data);
+        }
+
+        private void SpawnLevel(LevelData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            float maxDistance = 0f;
+
+            CreateAllClearDetector();
 
             foreach (LevelRow row in data.rows)
             {
                 SpawnObject(row);
+
+                if (row.distance > maxDistance)
+                {
+                    maxDistance = row.distance;
+                }
             }
 
-            SpawnWalls();
-            Debug.Log($"[LevelLoader] Level {levelNumber} loaded with {data.rows.Count} objects");
+            int waveCount = GameManager.currentLevel * 10;
+            SpawnEnemyWave(maxDistance + 30f, waveCount);
+
+            SetProgressBarLength(maxDistance);
+
+            Debug.Log($"[LevelLoader] Level {data.levelNumber} loaded with {data.rows.Count} objects, length: {maxDistance}, enemy wave: {waveCount}");
         }
 
-        private void SpawnWalls()
+        private void CreateAllClearDetector()
         {
+            GameObject detector = new GameObject("EnemyAllClearDetector");
+            detector.AddComponent<EnemyAllClearDetector>();
+        }
+
+        private void SpawnEnemyWave(float positionZ, int enemyCount)
+        {
+            Vector3 position = new Vector3(0f, 0.5f, positionZ);
+
+            GameObject enemyGroup = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            enemyGroup.name = "EnemyWave";
+            enemyGroup.transform.position = position;
+            enemyGroup.transform.localScale = new Vector3(2f, 2.5f, 2f);
+
+            Renderer renderer = enemyGroup.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = new Color(0.8f, 0f, 0f);
+            }
+
+            Collider enemyCollider = enemyGroup.GetComponent<Collider>();
+            if (enemyCollider != null)
+            {
+                enemyCollider.isTrigger = true;
+            }
+
+            EnemyGroup enemy = enemyGroup.AddComponent<EnemyGroup>();
+            enemy.SetEnemyCount(enemyCount);
+            enemyGroup.AddComponent<WorldMover>();
+
+            for (int i = 0; i < enemyCount; i++)
+            {
+                GameObject minion = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                minion.name = $"WaveMinion_{i}";
+                minion.transform.SetParent(enemyGroup.transform);
+                minion.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
+
+                Renderer minionRenderer = minion.GetComponent<Renderer>();
+                if (minionRenderer != null)
+                {
+                    minionRenderer.material.color = new Color(1f, 0.3f, 0f);
+                }
+            }
+
+            EnemyAllClearDetector detector = FindFirstObjectByType<EnemyAllClearDetector>();
+            if (detector != null)
+            {
+                detector.RegisterEnemy();
+            }
+
+            Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
+        }
+
+        private void SetProgressBarLength(float maxDistance)
+        {
+            GameObject barObj = GameObject.Find("ProgressBar");
+
+            if (barObj != null)
+            {
+                barObj.SendMessage("SetLevelLength", maxDistance, SendMessageOptions.DontRequireReceiver);
+            }
         }
 
         private void SpawnObject(LevelRow row)
@@ -72,10 +153,10 @@ namespace SnowmanCount.Gameplay
                     SpawnEnemy(position, row.value, int.TryParse(row.subValue, out int eCount) ? eCount : 3);
                     break;
                 case "obstacle":
-                    SpawnObstacle(position, row.value);
+                    SpawnObstacle(position, row.value, row.subValue);
                     break;
-                case "finish":
-                    SpawnFinish(position);
+                case "hole":
+                    SpawnHole(position);
                     break;
                 default:
                     Debug.LogWarning($"[LevelLoader] Unknown object type: {row.objectType}");
@@ -111,19 +192,6 @@ namespace SnowmanCount.Gameplay
             {
                 gateCtrl.SetGateData(op, val);
             }
-
-            GameObject label = new GameObject($"GateLabel_{gateData}");
-            label.transform.position = position + new Vector3(0f, 2.5f, 0f);
-            label.AddComponent<WorldMover>();
-
-            TextMesh textMesh = label.AddComponent<TextMesh>();
-            textMesh.text = $"{op}{val}";
-            textMesh.fontSize = 80;
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.color = op == "+" || op == "x" || op == "*" ? Color.blue : Color.red;
-            textMesh.characterSize = 0.08f;
-            label.transform.rotation = Quaternion.identity;
         }
 
         private void SpawnEnemy(Vector3 position, string enemyType, int count)
@@ -146,7 +214,14 @@ namespace SnowmanCount.Gameplay
             }
 
             EnemyGroup enemy = enemyGroup.AddComponent<EnemyGroup>();
+            enemy.SetEnemyCount(count);
             enemyGroup.AddComponent<WorldMover>();
+
+            EnemyAllClearDetector detector = FindFirstObjectByType<EnemyAllClearDetector>();
+            if (detector != null)
+            {
+                detector.RegisterEnemy();
+            }
 
             for (int i = 0; i < count; i++)
             {
@@ -165,7 +240,7 @@ namespace SnowmanCount.Gameplay
             Debug.Log($"[LevelLoader] Enemy at {position}: {enemyType} x{count}");
         }
 
-        private void SpawnObstacle(Vector3 position, string obstacleType)
+        private void SpawnObstacle(Vector3 position, string obstacleType, string damageValue)
         {
             GameObject obstacle = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             obstacle.name = $"Obstacle_{obstacleType}";
@@ -185,41 +260,40 @@ namespace SnowmanCount.Gameplay
             }
 
             ObstacleController obstacleCtrl = obstacle.AddComponent<ObstacleController>();
+
+            if (int.TryParse(damageValue, out int damage))
+            {
+                obstacleCtrl.SetDamage(damage);
+            }
+
             obstacle.AddComponent<WorldMover>();
 
-            Debug.Log($"[LevelLoader] Obstacle at {position}: {obstacleType}");
+            Debug.Log($"[LevelLoader] Obstacle at {position}: {obstacleType}, damage: {damageValue}");
         }
 
-        private void SpawnFinish(Vector3 position)
+        private void SpawnHole(Vector3 position)
         {
-            if (finishPrefab != null)
-            {
-                GameObject finish = Instantiate(finishPrefab, position, Quaternion.identity);
-                finish.name = "Finish";
-                finish.AddComponent<WorldMover>();
-                return;
-            }
+            GameObject hole = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            hole.name = "Hole";
+            hole.transform.position = new Vector3(position.x, -0.4f, position.z);
+            hole.transform.localScale = new Vector3(2f, 0.1f, 2f);
 
-            GameObject finishObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            finishObj.name = "Finish";
-            finishObj.transform.position = position;
-            finishObj.transform.localScale = new Vector3(8f, 0.5f, 1f);
-
-            Renderer renderer = finishObj.GetComponent<Renderer>();
+            Renderer renderer = hole.GetComponent<Renderer>();
             if (renderer != null)
             {
-                renderer.material.color = Color.green;
+                renderer.material.color = Color.black;
             }
 
-            BoxCollider collider = finishObj.GetComponent<BoxCollider>();
+            BoxCollider collider = hole.GetComponent<BoxCollider>();
             if (collider != null)
             {
                 collider.isTrigger = true;
             }
 
-            finishObj.AddComponent<WorldMover>();
+            hole.AddComponent<HoleController>();
+            hole.AddComponent<WorldMover>();
 
-            Debug.Log($"[LevelLoader] Finish line at {position}");
+            Debug.Log($"[LevelLoader] Hole at {position}");
         }
     }
 }

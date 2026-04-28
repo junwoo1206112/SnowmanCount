@@ -2,6 +2,8 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
+using SnowmanCount.Gameplay;
+
 namespace SnowmanCount.UI
 {
     public class UICounter : MonoBehaviour
@@ -34,7 +36,24 @@ namespace SnowmanCount.UI
                 gameOverText.gameObject.SetActive(false);
             }
 
+            CrowdController crowd = FindFirstObjectByType<CrowdController>();
+
+            if (crowd != null)
+            {
+                crowd.OnCrowdCountChanged += UpdateCount;
+            }
+
             UpdateText(0);
+        }
+
+        private void OnDestroy()
+        {
+            CrowdController crowd = FindFirstObjectByType<CrowdController>();
+
+            if (crowd != null)
+            {
+                crowd.OnCrowdCountChanged -= UpdateCount;
+            }
         }
 
         public void UpdateCount(int newCount)

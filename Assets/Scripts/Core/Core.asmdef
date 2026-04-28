@@ -2,7 +2,8 @@
     "name": "SnowmanCount.Core",
     "rootNamespace": "SnowmanCount.Core",
     "references": [
-        "SnowmanCount.Data"
+        "SnowmanCount.Data",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

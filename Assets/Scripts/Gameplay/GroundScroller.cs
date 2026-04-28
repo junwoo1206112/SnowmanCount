@@ -1,11 +1,13 @@
 using UnityEngine;
 
+using SnowmanCount.Core;
+
 namespace SnowmanCount.Gameplay
 {
     public class GroundScroller : MonoBehaviour
     {
         [Header("Scroll Settings")]
-        [SerializeField] private float baseScrollSpeed = 0.5f;
+        [SerializeField] private float baseScrollSpeed = 1.5f;
         [SerializeField] private string textureProperty = "_BaseMap";
         [SerializeField] private bool syncWithPlayerSpeed = true;
 
@@ -35,11 +37,17 @@ namespace SnowmanCount.Gameplay
         {
             if (groundMaterial == null) return;
 
+            if (GameStateManager.Instance != null &&
+                GameStateManager.Instance.CurrentState != GameState.Play)
+            {
+                return;
+            }
+
             float currentSpeed = baseScrollSpeed;
 
             if (syncWithPlayerSpeed && playerMovement != null)
             {
-                currentSpeed = baseScrollSpeed;
+                currentSpeed = playerMovement.CurrentSpeed * 0.1f;
             }
 
             offset.y -= currentSpeed * Time.deltaTime;

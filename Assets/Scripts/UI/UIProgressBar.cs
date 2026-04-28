@@ -1,22 +1,42 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+using SnowmanCount.Gameplay;
+
 namespace SnowmanCount.UI
 {
     public class UIProgressBar : MonoBehaviour
     {
+        public static UIProgressBar Instance { get; private set; }
+
         [Header("UI References")]
         [SerializeField] private Image progressFill;
+
+        [Header("Settings")]
         [SerializeField] private float levelLength = 100f;
 
-        [Header("Movement")]
-        [SerializeField] private Transform playerPivot;
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        public void SetLevelLength(float length)
+        {
+            levelLength = length;
+
+            if (levelLength <= 0f)
+            {
+                levelLength = 100f;
+            }
+        }
 
         private void Update()
         {
-            if (progressFill == null || playerPivot == null) return;
+            if (progressFill == null) return;
 
-            float progress = Mathf.Clamp01(playerPivot.position.z / levelLength);
+            if (levelLength <= 0f) return;
+
+            float progress = Mathf.Clamp01(Gameplay.WorldMover.totalDistanceTraveled / levelLength);
             progressFill.fillAmount = progress;
         }
     }

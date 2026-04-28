@@ -1,34 +1,42 @@
 using System.IO;
+using UnityEngine;
+
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
+
 using SnowmanCount.Data.Models;
-using UnityEngine;
 
 namespace SnowmanCount.Data
 {
     public class NpoiLevelDataProvider : ILevelDataProvider
     {
-        private readonly string basePath;
+        private readonly string filePath;
 
-        public NpoiLevelDataProvider(string basePath = null)
+        public NpoiLevelDataProvider(string filePath = null)
         {
-            this.basePath = basePath ?? Path.Combine(Application.streamingAssetsPath, "Levels");
+            this.filePath = filePath ?? Path.Combine(Application.streamingAssetsPath, "Levels", "Levels.xlsx");
         }
 
         public LevelData LoadLevel(int levelNumber)
         {
-            string filePath = Path.Combine(basePath, $"Level_{levelNumber:D2}.xlsx");
-
             if (!File.Exists(filePath))
             {
-                Debug.LogError($"[NpoiLevelDataProvider] File not found: {filePath}");
+                Debug.LogWarning($"[NpoiLevelDataProvider] File not found: {filePath}");
                 return null;
             }
+
+            string sheetName = $"Level{levelNumber}";
 
             using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
             {
                 IWorkbook workbook = new XSSFWorkbook(fs);
-                ISheet sheet = workbook.GetSheetAt(0);
+                ISheet sheet = workbook.GetSheet(sheetName);
+
+                if (sheet == null)
+                {
+                    Debug.Log($"[NpoiLevelDataProvider] Sheet '{sheetName}' not found in {filePath}");
+                    return null;
+                }
 
                 LevelData data = new LevelData
                 {
@@ -67,21 +75,6 @@ namespace SnowmanCount.Data
                     return float.TryParse(cell.StringCellValue, out float result) ? result : 0f;
                 default:
                     return 0f;
-            }
-        }
-
-        private int GetCellIntValue(ICell cell)
-        {
-            if (cell == null) return 0;
-
-            switch (cell.CellType)
-            {
-                case CellType.Numeric:
-                    return (int)cell.NumericCellValue;
-                case CellType.String:
-                    return int.TryParse(cell.StringCellValue, out int result) ? result : 0;
-                default:
-                    return 0;
             }
         }
 
