@@ -24,13 +24,14 @@ unity-cli test --mode PlayMode  # 테스트 실행
 unity-cli reserialize           # 에셋 수정 후 리시리얼라이즈
 ```
 
-### 3. 스킬 로드 (필수)
-작업 시작 시 다음 스킬을 순서대로 로드할 것:
+### 3. 스킬 자동 로드 (필수)
+작업 시작 시 다음 스킬을 자동으로 로드합니다 (`.opencode/rules.json` 설정):
 ```
 skill({ name: "rules-mandatory" })
 skill({ name: "unity-cli" })
 skill({ name: "openspec-workflow" })
 ```
+수동으로 로드할 필요 없이, 작업 시작 시 자동 적용됩니다.
 
 ## 프로젝트 개요
 

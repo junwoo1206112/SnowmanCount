@@ -170,6 +170,16 @@ namespace SnowmanCount.Core
             }
         }
 
+        public void OnLeaderDied()
+        {
+            Debug.Log("[GameManager] Leader died - Game Over");
+
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.SetState(GameState.GameOver);
+            }
+        }
+
         private void ShowGameOverUI()
         {
             Canvas canvas = FindFirstObjectByType<Canvas>();

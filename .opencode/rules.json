@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "name": "Mandatory Skills",
+      "description": "Automatically load mandatory skills when starting any work session",
+      "hooks": {
+        "onSessionStart": [
+          "skill({ name: \"rules-mandatory\" })",
+          "skill({ name: \"unity-cli\" })",
+          "skill({ name: \"openspec-workflow\" })"
+        ]
+      }
+    },
+    {
+      "name": "OpenSpec Workflow",
+      "description": "All feature changes must use OpenSpec propose → apply → archive workflow",
+      "rules": [
+        "For any structural change, use /opsx:propose first",
+        "For simple bug fixes (1-2 lines), direct editing is allowed",
+        "Always check openspec list --json before starting new work"
+      ]
+    }
+  ]
+}

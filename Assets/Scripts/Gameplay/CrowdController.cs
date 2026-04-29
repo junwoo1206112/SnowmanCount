@@ -15,10 +15,12 @@ namespace SnowmanCount.Gameplay
         [SerializeField] private float lerpSpeed = 5f;
         [SerializeField] private ObjectPooler objectPooler;
 
+        [Header("Formation Density")]
+        [SerializeField] private float minRadiusMultiplier = 0.6f;
+        [SerializeField] private int squeezeStartCount = 50;
+        [SerializeField] private int maxSqueezeCount = 200;
+
         private List<GameObject> activeCrowd = new List<GameObject>();
-        private Dictionary<GameObject, float> angles = new Dictionary<GameObject, float>();
-        private Dictionary<GameObject, float> radii = new Dictionary<GameObject, float>();
-        private int totalSpawned; // 누적 스폰 수 (ring 계산용)
         private Transform playerPivot;
         private bool canUpdate;
 
@@ -77,76 +79,123 @@ namespace SnowmanCount.Gameplay
                 GameManager.carryOverCrowdCount = -1;
             }
 
-            for (int i = 0; i < targetCount; i++)
-            {
-                SpawnFollower();
-            }
+            SpawnFollowers(targetCount);
 
             Debug.Log($"[CrowdController] Initial crowd spawned: {CurrentCount}");
             OnCrowdCountChanged?.Invoke(CurrentCount);
         }
-
-        private void SpawnFollower()
+        private void SpawnFollowers(int count)
         {
-            GameObject follower = objectPooler.GetPooledObject();
+            int startIndex = activeCrowd.Count;
 
-            if (follower == null) return;
-
-            float angle = 0f;
-            float radius = unitRadius;
-            int ring = 0;
-            int accumulated = 0;
-
-            for (int r = 0; r < 100; r++)
+            for (int i = 0; i < count; i++)
             {
-                int slots = GetSlotsInRing(r);
+                GameObject follower = objectPooler.GetPooledObject();
+                if (follower == null) continue;
 
-                if (totalSpawned < accumulated + slots)
+                SetupFollower(follower);
+
+                follower.transform.SetParent(null);
+                follower.transform.position = Vector3.zero;
+                activeCrowd.Add(follower);
+            }
+
+            // 유닛이 추가될 때 전체 대형을 다시 계산하여 중간의 빈틈을 메꿈 (Compact & Fill)
+            RedistributeAngles();
+
+            for (int i = startIndex; i < activeCrowd.Count; i++)
+            {
+                GameObject follower = activeCrowd[i];
+                FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+                if (fc != null)
                 {
-                    ring = r;
-                    int indexInRing = totalSpawned - accumulated;
-                    angle = (360f / slots) * indexInRing;
-                    radius = ring == 0 ? unitRadius : unitRadius + ring * unitRadius * 2f;
-                    break;
+                    follower.transform.position = playerPivot.position + GetPolarOffset(fc.targetAngle, fc.targetRadius);
                 }
-
-                accumulated += slots;
             }
-
-            totalSpawned++;
-
-            follower.transform.position = playerPivot.position + GetPolarOffset(angle, radius);
-            follower.transform.SetParent(null);
-            activeCrowd.Add(follower);
-            angles[follower] = angle;
-            radii[follower] = radius;
         }
 
-        private int GetSlotsInRing(int ring)
+        private void SetupFollower(GameObject obj)
         {
-            if (ring == 0) return 1;
-
-            float circumference = 2f * Mathf.PI * (unitRadius + ring * unitRadius * 2f);
-
-            return Mathf.FloorToInt(circumference / (unitRadius * 2f));
-        }
-
-        private int GetSlotsPerRing(int ring)
-        {
-            int total = 0;
-
-            for (int i = 0; i <= ring; i++)
+            if (obj.GetComponent<Collider>() == null)
             {
-                total += GetSlotsInRing(i);
+                CapsuleCollider collider = obj.AddComponent<CapsuleCollider>();
+                collider.isTrigger = true;
+                collider.radius = 0.3f;
+                collider.height = 1f;
             }
 
-            return total;
+            if (obj.GetComponent<Rigidbody>() == null)
+            {
+                Rigidbody rb = obj.AddComponent<Rigidbody>();
+                rb.isKinematic = true;
+                rb.useGravity = false;
+            }
+
+            if (obj.GetComponent<FollowerComponent>() == null)
+            {
+                obj.AddComponent<FollowerComponent>();
+            }
         }
 
         private Vector3 GetPolarOffset(float angle, float radius)
         {
             float rad = angle * Mathf.Deg2Rad;
             return new Vector3(Mathf.Cos(rad) * radius, -0.5f, Mathf.Sin(rad) * radius);
+        }
+
+        private float GetDynamicRadius(int count)
+        {
+            if (count <= squeezeStartCount) return unitRadius;
+
+            float t = (float)(count - squeezeStartCount) / (maxSqueezeCount - squeezeStartCount);
+            t = Mathf.Clamp01(t);
+
+            float multiplier = Mathf.Lerp(1.0f, minRadiusMultiplier, t);
+            return unitRadius * multiplier;
+        }
+
+        private void RedistributeAngles()
+        {
+            int count = activeCrowd.Count;
+            if (count == 0) return;
+
+            // 현재 전체 인원수에 따른 반지름 계산
+            float dynamicRadius = GetDynamicRadius(count);
+            int tempIndex = 0;
+
+            // --- 중심부 비우기 및 순차적 슬롯 할당 ---
+            // 리스트의 인덱스 순서대로 좌표를 부여하므로, 
+            // 앞에서 이미 자리를 잡은 유닛들은 인덱스가 바뀌지 않는 한 자리를 유지함.
+            for (int ring = 1; ring < 100 && tempIndex < count; ring++)
+            {
+                int slotsInRing = GetSlotsInRing(ring, dynamicRadius);
+
+                for (int i = 0; i < slotsInRing && tempIndex < count; i++)
+                {
+                    GameObject follower = activeCrowd[tempIndex];
+                    FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+
+                    if (fc != null)
+                    {
+                        fc.targetAngle = (360f / slotsInRing) * i;
+                        fc.targetRadius = ring * dynamicRadius * 2f;
+                    }
+
+                    tempIndex++;
+                }
+            }
+        }
+
+        private int GetSlotsInRing(int ring, float radius)
+        {
+            if (ring == 0) return 1; // 중심 1명
+
+            // 링의 반지름: ring 1 = 2*radius, ring 2 = 4*radius...
+            float ringRadius = ring * radius * 2f;
+            float circumference = 2f * Mathf.PI * ringRadius;
+
+            // 해당 링에 들어갈 수 있는 최대 유닛 수 계산
+            return Mathf.Max(1, Mathf.FloorToInt(circumference / (radius * 2f)));
         }
 
         private void Update()
@@ -161,22 +210,44 @@ namespace SnowmanCount.Gameplay
                     continue;
                 }
 
-                MoveFollower(activeCrowd[i]);
+                GameObject follower = activeCrowd[i];
+                FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+
+                if (fc != null && fc.isFalling)
+                {
+                    // 추락 중인 유닛은 이동 로직에서 제외
+                    continue;
+                }
+
+                MoveFollower(follower);
             }
         }
 
         private void MoveFollower(GameObject follower)
         {
-            Vector3 targetPos = playerPivot.position + GetPolarOffset(angles[follower], radii[follower]);
+            FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+            if (fc == null) return;
 
-            follower.transform.position = Vector3.Lerp(
-                follower.transform.position,
-                targetPos,
-                lerpSpeed * Time.deltaTime
-            );
+            Vector3 targetPos = playerPivot.position + GetPolarOffset(fc.targetAngle, fc.targetRadius);
+
+            Vector3 currentPos = follower.transform.position;
+            float distance = Vector3.Distance(currentPos, targetPos);
+
+            if (distance > 1f)
+            {
+                follower.transform.position = targetPos;
+            }
+            else
+            {
+                follower.transform.position = Vector3.Lerp(
+                    currentPos,
+                    targetPos,
+                    lerpSpeed * Time.deltaTime
+                );
+            }
         }
 
-        private void NotifyCountChanged()
+        public void NotifyCountChanged()
         {
             OnCrowdCountChanged?.Invoke(CurrentCount);
         }
@@ -223,17 +294,14 @@ namespace SnowmanCount.Gameplay
             NotifyCountChanged();
         }
 
-        private void AddCrowd(int count)
+        public void AddCrowd(int count)
         {
-            for (int i = 0; i < count; i++)
-            {
-                SpawnFollower();
-            }
+            SpawnFollowers(count);
 
             Debug.Log($"[CrowdController] Added {count}. Total: {CurrentCount}");
         }
 
-        private void RemoveCrowd(int count)
+        public void RemoveCrowd(int count)
         {
             int removeCount = Mathf.Min(count, activeCrowd.Count);
 
@@ -287,36 +355,44 @@ namespace SnowmanCount.Gameplay
             GameObject follower = activeCrowd[lastIndex];
 
             activeCrowd.RemoveAt(lastIndex);
-            angles.Remove(follower);
-            radii.Remove(follower);
             objectPooler.ReturnToPool(follower);
-            totalSpawned--;
 
-            RebuildFormation();
+            // 유닛 제거 시에는 대형을 재계산하지 않음 (카운트 마스터 스타일)
         }
 
-        private void RebuildFormation()
+        public void RemoveSpecificFollower(GameObject follower)
         {
-            int count = activeCrowd.Count;
-            if (count == 0) return;
+            if (follower == null) return;
+            if (!activeCrowd.Remove(follower)) return;
 
-            int tempIndex = 0;
+            objectPooler.ReturnToPool(follower);
+            // 대형 재계산 제거
+            NotifyCountChanged();
 
-            for (int r = 0; r < 100 && tempIndex < count; r++)
+            if (CurrentCount <= 0)
             {
-                int slots = GetSlotsInRing(r);
-
-                for (int i = 0; i < slots && tempIndex < count; i++)
-                {
-                    GameObject follower = activeCrowd[tempIndex];
-                    float angle = (360f / slots) * i;
-                    float radius = r == 0 ? unitRadius : unitRadius + r * unitRadius * 2f;
-
-                    angles[follower] = angle;
-                    radii[follower] = radius;
-                    tempIndex++;
-                }
+                NotifyDepleted();
             }
+        }
+
+        public void RemoveFromList(GameObject follower)
+        {
+            if (follower == null) return;
+            if (!activeCrowd.Remove(follower)) return;
+
+            // 대형 재계산 제거
+            NotifyCountChanged();
+
+            if (CurrentCount <= 0)
+            {
+                NotifyDepleted();
+            }
+        }
+
+        public void ReturnFollowerToPool(GameObject follower)
+        {
+            if (follower == null) return;
+            objectPooler.ReturnToPool(follower);
         }
     }
 }

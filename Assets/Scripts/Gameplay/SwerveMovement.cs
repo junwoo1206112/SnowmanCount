@@ -9,8 +9,8 @@ namespace SnowmanCount.Gameplay
     {
         [Header("Movement Settings")]
         [SerializeField] private float forwardSpeed = 5f;
-        [SerializeField] private float swerveSpeed = 8f;
-        [SerializeField] private float xBound = 4f;
+        [SerializeField] private float swerveSpeed = 20f;
+        [SerializeField] private float xBound = 30f;
         public float XBound => xBound;
 
         private PlayerInput playerInput;
@@ -107,7 +107,7 @@ namespace SnowmanCount.Gameplay
             Vector3 pos = transform.position;
             pos.x += swerveAmount * Time.deltaTime;
             pos.x = Mathf.Clamp(pos.x, -xBound, xBound);
-            pos.y = 0f;
+            pos.y = 0.5f; // 도로(Y=0) 위에 발이 닿도록 높이 수정
             transform.position = pos;
         }
     }

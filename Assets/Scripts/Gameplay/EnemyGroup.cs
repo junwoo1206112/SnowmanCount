@@ -1,62 +1,62 @@
 using UnityEngine;
 
+using SnowmanCount.Core;
+
 namespace SnowmanCount.Gameplay
 {
     public class EnemyGroup : MonoBehaviour
     {
         [Header("Enemy Settings")]
         [SerializeField] private int enemyCount = 3;
-        [SerializeField] private float spreadRadius = 2f;
-        [SerializeField] private string enemyType = "Flame";
+        private int remainingMinions;
 
-        private CrowdController crowdController;
         private EnemyAllClearDetector clearDetector;
-        private bool hasTriggered;
+        private bool isRegistered = false;
 
         public void SetEnemyCount(int count)
         {
             enemyCount = count;
+            remainingMinions = count;
+        }
+
+        public void RegisterAsWave()
+        {
+            clearDetector = FindFirstObjectByType<EnemyAllClearDetector>();
+            if (clearDetector != null)
+            {
+                clearDetector.RegisterEnemy();
+                isRegistered = true;
+            }
         }
 
         private void Start()
         {
-            crowdController = FindFirstObjectByType<CrowdController>();
-            clearDetector = FindFirstObjectByType<EnemyAllClearDetector>();
+            // 부모의 트리거는 이제 필요 없음 (개별 미니언이 처리)
+            Collider col = GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+        }
 
-            for (int i = 0; i < transform.childCount && i < enemyCount; i++)
+        public void OnMinionDefeated()
+        {
+            remainingMinions--;
+
+            if (remainingMinions <= 0)
             {
-                Vector3 offset = new Vector3(
-                    UnityEngine.Random.Range(-spreadRadius, spreadRadius),
-                    0f,
-                    UnityEngine.Random.Range(-spreadRadius, spreadRadius)
-                );
-                transform.GetChild(i).localPosition = offset;
+                if (isRegistered && clearDetector != null)
+                {
+                    clearDetector.UnregisterEnemy();
+                }
+                Destroy(gameObject);
             }
         }
 
         private void OnDestroy()
         {
-            if (clearDetector != null)
+            // 아직 살아있는 상태에서 파괴될 경우(예: 레벨 전환)
+            if (remainingMinions > 0 && isRegistered && clearDetector != null)
             {
-                clearDetector.UnregisterEnemy();
+                // clearDetector.UnregisterEnemy(); // 필요 시 추가
             }
-        }
-
-        private void OnTriggerEnter(Collider other)
-        {
-            if (hasTriggered) return;
-            if (!other.CompareTag("Player")) return;
-
-            hasTriggered = true;
-            Debug.Log($"[EnemyGroup] Collided! Faction: {enemyType}, Count: {enemyCount}");
-
-            if (crowdController != null)
-            {
-                int damage = Mathf.Max(1, Mathf.RoundToInt(crowdController.CurrentCount * 0.1f));
-                crowdController.ApplyMathOperation("-", damage);
-            }
-
-            Destroy(gameObject);
         }
     }
 }

@@ -24,15 +24,25 @@ namespace SnowmanCount.Gameplay
         private void OnTriggerEnter(Collider other)
         {
             if (hasTriggered) return;
-            if (!other.CompareTag("Player")) return;
+
+            FollowerComponent follower = other.GetComponent<FollowerComponent>();
+            if (follower == null && !other.CompareTag("Player")) return;
 
             hasTriggered = true;
 
             if (crowdController != null)
             {
-                int damage = Mathf.Max(1, Mathf.RoundToInt(crowdController.CurrentCount * 0.1f));
-                crowdController.ApplyMathOperation("-", damage);
-                Debug.Log($"[ObstacleController] {obstacleType} dealt {damage} damage (10% of {crowdController.CurrentCount})");
+                if (follower != null)
+                {
+                    crowdController.RemoveSpecificFollower(other.gameObject);
+                    crowdController.NotifyCountChanged();
+                }
+                else if (other.CompareTag("Player"))
+                {
+                    crowdController.ApplyMathOperation("-", Mathf.Max(1, damagePerHit));
+                }
+
+                Debug.Log($"[ObstacleController] {obstacleType} hit {other.name}. Removed 1 follower.");
             }
 
             Destroy(gameObject);

@@ -375,7 +375,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: SnowmanCount.Gameplay::SnowmanCount.Gameplay.CrowdController
   initialCount: 5
-  unitRadius: 0.25
+   unitRadius: 0.5
   lerpSpeed: 8
   objectPooler: {fileID: 1800816552}
 --- !u!54 &97367754
@@ -400,7 +400,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
+   m_UseGravity: 0
   m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0

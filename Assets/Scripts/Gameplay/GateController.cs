@@ -57,15 +57,9 @@ namespace SnowmanCount.Gameplay
 
         private void OnTriggerEnter(Collider other)
         {
-            if (hasTriggered)
-            {
-                return;
-            }
+            if (hasTriggered) return;
 
-            if (!other.CompareTag("Player"))
-            {
-                return;
-            }
+            if (!other.CompareTag("Player")) return;
 
             hasTriggered = true;
 
