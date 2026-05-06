@@ -29,6 +29,7 @@ namespace SnowmanCount.Gameplay
             {
                 moveAction = playerInput.actions["Move"];
             }
+
         }
 
         private void OnEnable()
@@ -107,7 +108,7 @@ namespace SnowmanCount.Gameplay
             Vector3 pos = transform.position;
             pos.x += swerveAmount * Time.deltaTime;
             pos.x = Mathf.Clamp(pos.x, -xBound, xBound);
-            pos.y = 0.5f; // 도로(Y=0) 위에 발이 닿도록 높이 수정
+            pos.y = 0f;
             transform.position = pos;
         }
     }

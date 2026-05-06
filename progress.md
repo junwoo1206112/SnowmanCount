@@ -1,6 +1,6 @@
 # Snowman Count — Progress Report
 
-> 마지막 업데이트: 2026-04-28
+> 마지막 업데이트: 2026-05-06
 > 다음 작업: Phase 5 — 폴리싱
 
 ---
@@ -14,7 +14,7 @@
 | WorldMover | 게이트/적/장애물이 플레이어 쪽으로 이동 | ✅ |
 | GroundScroller | 바닥 텍스처 스크롤 (아래→위) | ✅ |
 | ObjectPooler | 눈사람 병력 50개 풀링, 자동 확장 | ✅ |
-| CrowdController | 병력 생성/Lerp 이동/+-x÷ 연산/GameOver | ✅ |
+| CrowdController | 병력 생성/Lerf 이동/+-x÷ 연산/GameOver | ✅ |
 | GateController | 게이트 통과 감지, 연산자 기호 표시 | ✅ |
 | LevelLoader | 엑셀 데이터 로드, 오브젝트 자동 배치 | ✅ |
 | GameManager | DI 컨테이너, 서비스 등록 | ✅ |
@@ -52,6 +52,27 @@
 | 장애물/적 10% 데미지 | 현재 병력의 10% (최소 1) 깎기 | ✅ |
 | Level Clear 자동 전환 | Retry 버튼 없이 1.5초 후 자동 | ✅ |
 
+### Phase 5 — 보스 및 전투 시스템 ✅
+| 시스템 | 설명 | 상태 |
+|--------|------|------|
+| BossController (단순화) | 미니언 제거, follower 충돌 → TakeDamage 즉시 소멸 | ✅ |
+| 보스 SnowmanSmall 프리팹 | Capsule 대신 SnowmanSmall (2x 스케일), Collider 자동 추가 | ✅ |
+| LevelLoader Boss 스폰 | SpawnBoss() + bossPrefab 필드 + "boss" 케이스 | ✅ |
+| Excel Boss 데이터 | Level1(560/30/6), Level2(550/50/8) | ✅ |
+| 적 다중 링 진형 | SpawnMultiRingFormation (Ring 0~N, CrowdController 방식) | ✅ |
+| 적 Y 통일 | 0.5 → 0 (땅에 닿게) | ✅ |
+| 적 Swarm 돌진 | WorldMover → SetParent(null) → 개별 군집돌진 (속도 18) | ✅ |
+| 적 Separation | OverlapSphere로 적끼리 밀쳐내기 (넓은 전선 유지) | ✅ |
+| 적 개별 타겟팅 | FindNearestAvailableFollower로 각자 가장 가까운 follower 추적 | ✅ |
+| OnTriggerEnter 즉시 소멸 | pause/dash/각도매칭 제거, 접촉 즉시 clash | ✅ |
+| PlayerPivot Y=0 통일 | 0.5 강제 제거, SnowGirl_2 local -0.5 → 0 | ✅ |
+| ObjectPooler 자식화 | PlayerPivot 자식으로 이동 (하이라키 통일) | ✅ |
+| GetPolarOffset Y=0 | followerYOffset 제거, 모든 유닛 동일 Y | ✅ |
+| MoveFollower 즉시 위치 | Vector3.Lerp 제거, targetPos 즉시 설정 (본체+분신 일체 이동) | ✅ |
+| 피라미드 계단 승리 연출 | 8877665544332211 구조, follower climbing, WorldMover 정지 | ✅ |
+| Excel Hole 값 "left" | 빈 값 → "left" 명시적 지정 | ✅ |
+| 죽은 코드 삭제 | BossMinionController, EnemyFormationController, temp 스크립트 정리 | ✅ |
+
 ---
 
 ## 핵심 아키텍처 결정사항
@@ -64,7 +85,7 @@
 ### 엑셀 데이터 구조
 - 위치: `StreamingAssets/Levels/Levels.xlsx`
 - 시트명: `Level1`, `Level2`, `Level3` ...
-- 열 구조: Distance | ObjectType(Gate/Enemy/Obstacle) | Value(연산자/타입) | SubValue(수치)
+- 열 구조: Distance | ObjectType(Gate/Enemy/Obstacle/Hole/Boss) | Value | SubValue
 - 더 이상 Finish 타입 사용 안 함 (Enemy 전멸로 클리어)
 
 ### asmdef 참조 구조 (순환 참조 방지)
@@ -82,9 +103,9 @@ UI → Gameplay
 ```
 Ready ──(탭)──▶ Play ──(병력 0)──▶ GameOver ──(Retry)──▶ Ready (같은 레벨)
                   │                                      (currentLevel 유지)
-                  └──(Enemy 전멸)──▶ LevelClear ──1.5s──▶ 다음 레벨
-                                                            (carry-over)
-                                                          (currentLevel++)
+                  └──(Enemy 전멸)──▶ LevelClear ──계단연출──▶ 다음 레벨
+                                                             (carry-over)
+                                                             (currentLevel++)
 ```
 
 ### DI 패턴
@@ -101,11 +122,31 @@ Ready ──(탭)──▶ Play ──(병력 0)──▶ GameOver ──(Retry)
 - `LevelDataService.cs` 제거 (dead code)
 - `NpoiLevelDataProvider.GetCellIntValue()` 제거 (dead code)
 
-### 전투 시스템
-- Enemy/Obstacle 모두 현재 병력의 **10% (최소 1)** 데미지로 통일
-- EnemyGroup: 엑셀 Enemy + Wave Enemy 모두 EnemyAllClearDetector에 등록
-- 전멸 조건: **모든 EnemyGroup이 Destroy**되어야 Level Clear
-- FinishLineController 완전 제거 (더 이상 사용 안 함)
+### 플레이어 Y 통일 (2026-05-06)
+- PlayerPivot Y=0 (SwerveMovement 0.5 강제 제거)
+- SnowGirl_2 local Y=-0.5 → 0 (자식 오프셋 제거)
+- GetPolarOffset Y=-0.5 → 0 (followerYOffset 필드 제거)
+- ObjectPooler Y=-0.5 → 0, PlayerPivot 자식으로 이동
+- 모든 유닛 동일 Y=0에서 하나의 영역으로 동작
+
+### 적 전투 시스템 (Count Masters 스타일, 2026-05-06)
+- ✅ 다중 링 진형 (SpawnMultiRingFormation)
+- ✅ 적 Y=0 통일 (WorldMover로 접근)
+- ✅ Aggro 30m → SetParent(null) → 개별 돌진 (swarmSpeed 18)
+- ✅ Separation (OverlapSphere 2m, 적끼리 밀쳐내기)
+- ✅ 각자 가장 가까운 follower 타겟팅 (FindNearestAvailableFollower)
+- ✅ OnTriggerEnter 즉시 소멸 (코루틴/대시/pause 없음)
+- ✅ 보스: SnowmanSmall 프리팹 + SphereCollider(1.5) + TakeDamage
+- ✅ 피라미드 계단 (8877665544332211, 최대 72명)
+
+---
+
+## 알려진 버그
+- [ ] Global Volume MissingReferenceException (에디터 전용, 게임플레이 무관)
+- [ ] Gate 프리팹 스크립트 참조 깨짐 (Missing Script → Remove 후 GateController 재추가 필요)
+- [ ] Save/Load 시스템 없음 (게임 재시작 시 레벨 초기화)
+- [ ] 보스 HP UI 바 미구현 (TextMesh만 있음)
+- [ ] 구멍 타일 시각적 생성 확인 필요 (GetHoleTypeAt 로직은 정상)
 
 ---
 
@@ -118,19 +159,7 @@ Ready ──(탭)──▶ Play ──(병력 0)──▶ GameOver ──(Retry)
 | `level-clear-flow` | ✅ 완료 | Level Clear UI, All Clear, Level 번호 |
 | `single-excel-multi-levels` | ✅ 완료 | Levels.xlsx 통합 |
 | `enemy-wave-clear` | ✅ 완료 | Enemy 전멸 클리어, 난이도 조절 |
-
----
-
-## 남은 작업
-
-### Phase 5 — 폴리싱
-- [ ] 눈사람 3D 모델 교체 (Capsule 대신)
-- [ ] 게이트 통과 시 파티클 이펙트
-- [ ] 배경 음악 및 SFX
-- [x] 게이트 통과 시 숫자 pop-up 애니메이션 (UICounter.PlayPopRoutine 자동 동작 중)
-- [ ] 빌드 테스트
-
-### 알려진 버그
-- [ ] Global Volume MissingReferenceException (에디터 전용, 게임플레이 무관)
-- [ ] Gate 프리팹 스크립트 참조 깨짐 (Missing Script → Remove 후 GateController 재추가 필요)
+| `boss-system` | ✅ 완료 | 보스 시스템 (단순화) |
+| `enemy-formation-fix` | ✅ 완료 | 적 WorldMover 속도 통일, 다중 링 진형 |
+| `hole-y-fix` | ✅ 완료 | HoleType 방지, 모든 유닛 Y=0 통일 |
 

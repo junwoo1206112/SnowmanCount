@@ -1,4 +1,6 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 using SnowmanCount.Core;
 using SnowmanCount.Data;
@@ -10,9 +12,11 @@ namespace SnowmanCount.Gameplay
     {
         [Header("Prefab References")]
         [SerializeField] private GameObject gatePrefab;
-        [SerializeField] private ObjectPooler enemyPooler;
+        [SerializeField] private GameObject enemyPrefab;
+        [SerializeField] private GameObject bossPrefab;
         [Header("Road Settings")]
         [SerializeField] private Material roadMaterial;
+        [SerializeField] private float roadWidthMultiplier = 2.0f;
 
         private ILevelDataProvider dataProvider;
         private LevelData currentLevelData;
@@ -37,7 +41,7 @@ namespace SnowmanCount.Gameplay
 
             if (data == null)
             {
-                Debug.Log("[LevelLoader] No more levels. All levels cleared!");
+                Debug.Log($"[LevelLoader] No level data for Level {GameManager.currentLevel}. Showing all levels clear.");
 
                 if (GameManager.Instance != null)
                 {
@@ -88,17 +92,26 @@ namespace SnowmanCount.Gameplay
                 SpawnObject(row);
             }
 
+            float bossDistance = -1f;
+            foreach (var row in data.rows)
+            {
+                if (row.objectType.ToLower() == "boss" && row.distance > bossDistance)
+                {
+                    bossDistance = row.distance;
+                }
+            }
+
             int waveCount = GameManager.currentLevel * 10;
-            SpawnEnemyWave(maxDistance - 20f, waveCount);
+            float waveZ = bossDistance > 0f ? bossDistance - 30f : maxDistance - 20f;
+            SpawnEnemyWave(waveZ, waveCount);
 
             SetProgressBarLength(maxDistance);
         }
 
         private HoleType GetHoleTypeAt(float z, System.Collections.Generic.List<LevelRow> rows)
         {
-            // 테스트용 강제 구멍 (레벨 1: 왼쪽 구멍, 레벨 2: 오른쪽 구멍)
-            if (GameManager.currentLevel == 1 && (z >= 20 && z <= 30)) return HoleType.Left;
-            if (GameManager.currentLevel == 2 && (z >= 15 && z <= 25)) return HoleType.Right;
+            if (GameManager.currentLevel == 1 && Mathf.Abs(z - 25f) < 3f) return HoleType.Left;
+            if (GameManager.currentLevel == 2 && Mathf.Abs(z - 20f) < 3f) return HoleType.Right;
 
             // 엑셀 데이터의 구멍 확인
             foreach (var row in rows)
@@ -108,7 +121,7 @@ namespace SnowmanCount.Gameplay
                     string val = row.value.ToLower();
                     if (val == "left") return HoleType.Left;
                     if (val == "right") return HoleType.Right;
-                    return HoleType.Full;
+                    return HoleType.Left;
                 }
             }
             return HoleType.None;
@@ -117,7 +130,8 @@ namespace SnowmanCount.Gameplay
         private float GetTotalWidth()
         {
             SwerveMovement sm = FindFirstObjectByType<SwerveMovement>();
-            return (sm != null) ? sm.XBound * 2f : 30f; // 기본값 30m
+            float baseWidth = (sm != null) ? sm.XBound * 2f : 30f;
+            return baseWidth * roadWidthMultiplier;
         }
 
         private void SpawnRoadSegment(float z, float length, HoleType hole)
@@ -205,9 +219,30 @@ namespace SnowmanCount.Gameplay
             detector.AddComponent<EnemyAllClearDetector>();
         }
 
+        private GameObject SpawnEnemyMinion()
+        {
+            GameObject minion;
+            if (enemyPrefab != null)
+            {
+                minion = Instantiate(enemyPrefab);
+            }
+            else
+            {
+                minion = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                minion.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+                Renderer r = minion.GetComponent<Renderer>();
+                if (r != null) r.material.color = new Color(1f, 0.3f, 0f);
+            }
+
+            Collider col = minion.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            return minion;
+        }
+
         private void SpawnEnemyWave(float positionZ, int enemyCount)
         {
-            Vector3 position = new Vector3(0f, 0.5f, positionZ);
+            Vector3 position = new Vector3(0f, 0f, positionZ);
 
             GameObject enemyGroupObj = new GameObject("EnemyWave");
             enemyGroupObj.transform.position = position;
@@ -216,40 +251,56 @@ namespace SnowmanCount.Gameplay
             enemy.SetEnemyCount(enemyCount);
             enemyGroupObj.AddComponent<WorldMover>();
 
-            // 최종 웨이브로 등록하여 클리어 조건에 포함시킴
             enemy.RegisterAsWave();
 
-            for (int i = 0; i < enemyCount; i++)
+            SpawnMultiRingFormation(enemyGroupObj.transform, enemyCount, enemy);
+
+            Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
+        }
+
+        private void SpawnMultiRingFormation(Transform parent, int count, EnemyGroup group)
+        {
+            float unitSpacing = 1.5f;
+            int tempIndex = 0;
+
+            for (int ring = 0; ring < 100 && tempIndex < count; ring++)
             {
-                GameObject minion;
-                if (enemyPooler != null)
+                int slotsInRing;
+                float ringRadius;
+
+                if (ring == 0)
                 {
-                    minion = enemyPooler.GetPooledObject();
-                    minion.transform.SetParent(enemyGroupObj.transform);
-                    minion.transform.localPosition = Random.insideUnitSphere * 2f;
-                    minion.transform.localPosition = new Vector3(minion.transform.localPosition.x, 0f, minion.transform.localPosition.z);
+                    slotsInRing = 1;
+                    ringRadius = 0f;
                 }
                 else
                 {
-                    minion = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    minion.transform.SetParent(enemyGroupObj.transform);
-                    minion.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
+                    ringRadius = ring * unitSpacing;
+                    float circumference = 2f * Mathf.PI * ringRadius;
+                    slotsInRing = Mathf.Max(1, Mathf.FloorToInt(circumference / unitSpacing));
                 }
 
-                minion.name = $"WaveMinion_{i}";
-
-                Renderer minionRenderer = minion.GetComponent<Renderer>();
-                if (minionRenderer != null)
+                for (int i = 0; i < slotsInRing && tempIndex < count; i++)
                 {
-                    minionRenderer.material.color = new Color(1f, 0.3f, 0f);
+                    float angle = (360f / slotsInRing) * i;
+                    float rad = angle * Mathf.Deg2Rad;
+
+                    GameObject minion = SpawnEnemyMinion();
+                    minion.name = $"Minion_{tempIndex}";
+                    minion.transform.SetParent(parent);
+                    minion.transform.localPosition = new Vector3(
+                        Mathf.Cos(rad) * ringRadius,
+                        0f,
+                        Mathf.Sin(rad) * ringRadius
+                    );
+
+                    EnemyMinion minionCtrl = minion.GetComponent<EnemyMinion>();
+                    if (minionCtrl == null) minionCtrl = minion.AddComponent<EnemyMinion>();
+                    minionCtrl.Setup(group);
+
+                    tempIndex++;
                 }
-
-                EnemyMinion minionCtrl = minion.GetComponent<EnemyMinion>();
-                if (minionCtrl == null) minionCtrl = minion.AddComponent<EnemyMinion>();
-                minionCtrl.Setup(enemy, enemyPooler);
             }
-
-            Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
         }
 
         private void SetProgressBarLength(float maxDistance)
@@ -278,12 +329,64 @@ namespace SnowmanCount.Gameplay
                     SpawnObstacle(position, row.value, row.subValue);
                     break;
                 case "hole":
-                    // 구멍 로직은 타일 시스템에서 처리하므로 여기서는 무시하거나 필요시 별도 처리
+                    break;
+                case "boss":
+                    SpawnBoss(position, row.value, row.subValue);
                     break;
                 default:
                     Debug.LogWarning($"[LevelLoader] Unknown object type: {row.objectType}");
                     break;
             }
+        }
+
+        private void SpawnBoss(Vector3 position, string hpValue, string minionCountValue)
+        {
+            int hp = int.TryParse(hpValue, out int h) ? h : 30;
+            int minionCount = int.TryParse(minionCountValue, out int m) ? m : 6;
+
+            GameObject bossObj;
+
+            if (bossPrefab != null)
+            {
+                bossObj = Instantiate(bossPrefab, position, Quaternion.identity);
+                bossObj.name = "Boss";
+                bossObj.transform.localScale = new Vector3(2f, 2f, 2f);
+            }
+            else
+            {
+                bossObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                bossObj.name = "Boss";
+                bossObj.transform.position = position;
+                bossObj.transform.localScale = new Vector3(2f, 3f, 2f);
+
+                Renderer renderer = bossObj.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    renderer.material.color = new Color(0.8f, 0.1f, 0.1f);
+                }
+            }
+
+            Collider col = bossObj.GetComponent<Collider>();
+            if (col == null)
+            {
+                SphereCollider sphere = bossObj.AddComponent<SphereCollider>();
+                sphere.radius = 1.5f;
+                col = sphere;
+            }
+            col.isTrigger = true;
+
+            Rigidbody rb = bossObj.GetComponent<Rigidbody>();
+            if (rb == null) rb = bossObj.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+
+            BossController boss = bossObj.GetComponent<BossController>();
+            if (boss == null) boss = bossObj.AddComponent<BossController>();
+            boss.Setup(hp, minionCount);
+
+            bossObj.AddComponent<WorldMover>();
+
+            Debug.Log($"[LevelLoader] Boss at {position}: HP={hp}, Minions={minionCount}");
         }
 
         private void SpawnGate(Vector3 position, string leftGate, string rightGate)
@@ -338,42 +441,17 @@ namespace SnowmanCount.Gameplay
 
         private void SpawnEnemy(Vector3 position, string enemyType, int count)
         {
+            position.y = 0f;
+
             GameObject enemyGroupObj = new GameObject($"Enemy_{enemyType}");
             enemyGroupObj.transform.position = position;
 
             EnemyGroup enemy = enemyGroupObj.AddComponent<EnemyGroup>();
             enemy.SetEnemyCount(count);
+
             enemyGroupObj.AddComponent<WorldMover>();
 
-            for (int i = 0; i < count; i++)
-            {
-                GameObject minion;
-                if (enemyPooler != null)
-                {
-                    minion = enemyPooler.GetPooledObject();
-                    minion.transform.SetParent(enemyGroupObj.transform);
-                    minion.transform.localPosition = Random.insideUnitSphere * 1.5f;
-                    minion.transform.localPosition = new Vector3(minion.transform.localPosition.x, 0f, minion.transform.localPosition.z);
-                }
-                else
-                {
-                    minion = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    minion.transform.SetParent(enemyGroupObj.transform);
-                    minion.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
-                }
-
-                minion.name = $"EnemyMinion_{i}";
-
-                Renderer minionRenderer = minion.GetComponent<Renderer>();
-                if (minionRenderer != null)
-                {
-                    minionRenderer.material.color = new Color(1f, 0.5f, 0f);
-                }
-
-                EnemyMinion minionCtrl = minion.GetComponent<EnemyMinion>();
-                if (minionCtrl == null) minionCtrl = minion.AddComponent<EnemyMinion>();
-                minionCtrl.Setup(enemy, enemyPooler);
-            }
+            SpawnMultiRingFormation(enemyGroupObj.transform, count, enemy);
 
             Debug.Log($"[LevelLoader] Enemy at {position}: {enemyType} x{count}");
         }
@@ -456,6 +534,133 @@ namespace SnowmanCount.Gameplay
             controller.SetSettings(2.5f, 60f);
 
             Debug.Log($"[LevelLoader] Hammer spawned at {position}");
+        }
+
+        private void OnVictorySequence()
+        {
+            StartCoroutine(VictoryStaircaseRoutine());
+        }
+
+        private IEnumerator VictoryStaircaseRoutine()
+        {
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            CrowdController crowd = FindFirstObjectByType<CrowdController>();
+            int totalFollowers = crowd != null ? crowd.CurrentCount : 0;
+
+            if (crowd == null || totalFollowers <= 0)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.SendMessage("ShowLevelClearUI", totalFollowers);
+                }
+                yield return new WaitForSecondsRealtime(1.5f);
+                Time.timeScale = 1f;
+                GameManager.AdvanceLevel();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                yield break;
+            }
+
+            WorldMover[] movers = FindObjectsByType<WorldMover>(FindObjectsSortMode.None);
+            foreach (var m in movers) m.SetSpeed(0f);
+
+            int[] stepCapacities = { 16, 14, 12, 10, 8, 6, 4, 2 };
+            int remaining = totalFollowers;
+            int stepsNeeded = 0;
+            for (int i = 0; i < stepCapacities.Length; i++)
+            {
+                if (remaining <= 0) break;
+                remaining -= stepCapacities[i];
+                stepsNeeded++;
+            }
+
+            Vector3 pivot = transform.position + new Vector3(0f, 0f, 8f);
+            float stepHeight = 0.6f;
+            float stepDepth = 1.2f;
+            float baseWidth = 3f;
+
+            for (int i = 0; i < stepsNeeded; i++)
+            {
+                GameObject step = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                step.name = $"StairStep_{i}";
+                float w = baseWidth + i * 0.5f;
+                step.transform.localScale = new Vector3(w, 0.2f, stepDepth);
+                step.transform.position = pivot + new Vector3(0f, i * stepHeight, -i * stepDepth);
+
+                Renderer r = step.GetComponent<Renderer>();
+                if (r != null) r.material.color = new Color(0.9f, 0.85f, 0.7f);
+                Destroy(step.GetComponent<Collider>());
+
+                yield return new WaitForSecondsRealtime(0.08f);
+            }
+
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            int followerIdx = 0;
+            for (int s = 0; s < stepsNeeded; s++)
+            {
+                int cap = stepCapacities[s];
+                int onStep = Mathf.Min(cap, totalFollowers - followerIdx);
+                float stepY = pivot.y + s * stepHeight;
+                float stepZ = pivot.z - s * stepDepth;
+                float w = baseWidth + s * 0.5f;
+
+                for (int j = 0; j < onStep && followerIdx < totalFollowers; j++, followerIdx++)
+                {
+                    GameObject f = crowd.GetFollowerAtIndex(followerIdx);
+                    if (f != null)
+                    {
+                        FollowerComponent fc = f.GetComponent<FollowerComponent>();
+                        if (fc != null) fc.isDueling = true;
+
+                        bool isLeft = j % 2 == 0;
+                        float xOff = (isLeft ? -1 : 1) * (w * 0.35f);
+                        Vector3 targetPos = new Vector3(pivot.x + xOff, stepY + 2f, stepZ);
+                        Vector3 endPos = new Vector3(pivot.x + xOff, stepY + 0.1f, stepZ);
+
+                        StartCoroutine(ClimbToPosition(f, targetPos, endPos, 0.4f));
+                    }
+
+                    yield return new WaitForSecondsRealtime(0.06f);
+                }
+            }
+
+            yield return new WaitForSecondsRealtime(0.8f);
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SendMessage("ShowLevelClearUI", totalFollowers);
+                GameManager.Instance.SendMessage("UpdateLevelNumberDisplay");
+            }
+
+            yield return new WaitForSecondsRealtime(1.5f);
+
+            Time.timeScale = 1f;
+            GameManager.AdvanceLevel();
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        private IEnumerator ClimbToPosition(GameObject obj, Vector3 peak, Vector3 land, float duration)
+        {
+            if (obj == null) yield break;
+
+            Vector3 start = obj.transform.position;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                if (obj == null) yield break;
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                Vector3 pos = Vector3.Lerp(Vector3.Lerp(start, peak, t), land, t * t);
+                obj.transform.position = pos;
+
+                yield return null;
+            }
+
+            if (obj != null) obj.transform.position = land;
         }
     }
 }

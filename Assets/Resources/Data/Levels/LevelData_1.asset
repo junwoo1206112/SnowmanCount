@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2245f9d48ffe0fc45b6583a073d681b9, type: 3}
+  m_Name: LevelData_1
+  m_EditorClassIdentifier: SnowmanCount.Data::SnowmanCount.Data.Models.LevelDataSO
+  levelNumber: 1
+  rows:
+  - distance: 5
+    objectType: Gate
+    value: +5
+    subValue: x2
+  - distance: 40
+    objectType: Gate
+    value: +10
+    subValue: -3
+  - distance: 75
+    objectType: Gate
+    value: x3
+    subValue: +20
+  - distance: 110
+    objectType: Obstacle
+    value: Saw
+    subValue: 1
+  - distance: 115
+    objectType: Hole
+    value: 
+    subValue: 
+  - distance: 130
+    objectType: Gate
+    value: +15
+    subValue: "\xF72"
+  - distance: 170
+    objectType: Enemy
+    value: Flame
+    subValue: 30
+  - distance: 200
+    objectType: Gate
+    value: -10
+    subValue: x2
+  - distance: 240
+    objectType: Obstacle
+    value: Saw
+    subValue: 1
+  - distance: 270
+    objectType: Gate
+    value: +30
+    subValue: "\xF73"
+  - distance: 310
+    objectType: Enemy
+    value: Flame
+    subValue: 50
+  - distance: 350
+    objectType: Gate
+    value: x2
+    subValue: +50
+  - distance: 390
+    objectType: Obstacle
+    value: Saw
+    subValue: 1
+  - distance: 430
+    objectType: Gate
+    value: +25
+    subValue: -5
+  - distance: 470
+    objectType: Enemy
+    value: Flame
+    subValue: 70
+  - distance: 510
+    objectType: Gate
+    value: x4
+    subValue: +100
+  - distance: 560
+    objectType: Boss
+    value: 30
+    subValue: 6

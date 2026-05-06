@@ -14,7 +14,20 @@ namespace SnowmanCount.Core
         public static int currentLevel { get; private set; } = 1;
         public static int carryOverCrowdCount { get; set; } = -1;
 
+        public static void AdvanceLevel()
+        {
+            currentLevel++;
+        }
+
         public ILevelDataProvider LevelDataProvider { get; private set; }
+        public ILevelDataRepository LevelDataRepository { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRuntimeState()
+        {
+            currentLevel = 1;
+            carryOverCrowdCount = -1;
+        }
 
         private void Awake()
         {
@@ -44,7 +57,9 @@ namespace SnowmanCount.Core
 
         private void RegisterServices()
         {
-            LevelDataProvider = new NpoiLevelDataProvider();
+            NpoiLevelDataProvider provider = new NpoiLevelDataProvider();
+            LevelDataProvider = provider;
+            LevelDataRepository = provider;
             Debug.Log("[GameManager] Services registered");
         }
 
@@ -53,6 +68,7 @@ namespace SnowmanCount.Core
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             tapRegistered = false;
+            HideEndStateUI();
             GameStateManager.Instance.SetState(GameState.Ready);
             UpdateLevelNumberDisplay();
         }
@@ -91,6 +107,12 @@ namespace SnowmanCount.Core
 
         public void OnLevelCleared(int currentCrowdCount = -1)
         {
+            if (GameStateManager.Instance == null || GameStateManager.Instance.CurrentState != GameState.Play)
+            {
+                Debug.LogWarning("[GameManager] Level clear ignored because the game is not in Play state");
+                return;
+            }
+
             Debug.Log("[GameManager] Level cleared!");
 
             if (currentCrowdCount >= 0)
@@ -103,7 +125,15 @@ namespace SnowmanCount.Core
                 GameStateManager.Instance.SetState(GameState.LevelClear);
             }
 
-            StartCoroutine(LoadNextLevelDelayed());
+            GameObject loader = GameObject.Find("LevelLoader");
+            if (loader != null)
+            {
+                loader.SendMessage("OnVictorySequence");
+            }
+            else
+            {
+                StartCoroutine(LoadNextLevelDelayed());
+            }
         }
 
         private IEnumerator LoadNextLevelDelayed()
@@ -162,6 +192,12 @@ namespace SnowmanCount.Core
 
         public void OnCrowdDepleted()
         {
+            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameState.Play)
+            {
+                Debug.LogWarning("[GameManager] Crowd depleted ignored because the game is not in Play state");
+                return;
+            }
+
             Debug.Log("[GameManager] Crowd depleted - Game Over");
 
             if (GameStateManager.Instance != null)
@@ -172,11 +208,33 @@ namespace SnowmanCount.Core
 
         public void OnLeaderDied()
         {
-            Debug.Log("[GameManager] Leader died - Game Over");
+            Debug.Log("[GameManager] Leader died - Removing one follower");
 
             if (GameStateManager.Instance != null)
             {
                 GameStateManager.Instance.SetState(GameState.GameOver);
+            }
+        }
+
+        public void OnBossDefeated()
+        {
+            Debug.Log("[GameManager] Boss defeated - Level cleared!");
+
+            carryOverCrowdCount = -1;
+
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.SetState(GameState.LevelClear);
+            }
+
+            GameObject loader = GameObject.Find("LevelLoader");
+            if (loader != null)
+            {
+                loader.SendMessage("OnVictorySequence");
+            }
+            else
+            {
+                StartCoroutine(LoadNextLevelDelayed());
             }
         }
 
@@ -218,6 +276,14 @@ namespace SnowmanCount.Core
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
+        public void RetryAllLevels()
+        {
+            Time.timeScale = 1f;
+            carryOverCrowdCount = -1;
+            currentLevel = 1;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
         public void ShowAllLevelsClear()
         {
             Canvas canvas = FindFirstObjectByType<Canvas>();
@@ -243,12 +309,37 @@ namespace SnowmanCount.Core
                     if (btn != null)
                     {
                         btn.onClick.RemoveAllListeners();
-                        btn.onClick.AddListener(RetryGame);
+                        btn.onClick.AddListener(RetryAllLevels);
                     }
                 }
             }
 
             Time.timeScale = 0f;
+        }
+
+        private void HideEndStateUI()
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+
+            if (canvas == null) return;
+
+            Transform gameOverTxt = canvas.transform.Find("GameOverText");
+            if (gameOverTxt != null)
+            {
+                gameOverTxt.gameObject.SetActive(false);
+            }
+
+            Transform clearText = canvas.transform.Find("LevelClearText");
+            if (clearText != null)
+            {
+                clearText.gameObject.SetActive(false);
+            }
+
+            Transform retryBtn = canvas.transform.Find("RetryButton");
+            if (retryBtn != null)
+            {
+                retryBtn.gameObject.SetActive(false);
+            }
         }
 
         public void UpdateLevelNumberDisplay()

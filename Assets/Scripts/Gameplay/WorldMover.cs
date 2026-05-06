@@ -19,6 +19,11 @@ namespace SnowmanCount.Gameplay
 
         private bool canMove;
 
+        public void SetSpeed(float speed)
+        {
+            moveSpeed = speed;
+        }
+
         private void Start()
         {
             if (GameStateManager.Instance != null)

@@ -29,6 +29,12 @@ namespace SnowmanCount.Gameplay
 
         public int CurrentCount => activeCrowd.Count;
 
+        public GameObject GetFollowerAtIndex(int index)
+        {
+            if (index < 0 || index >= activeCrowd.Count) return null;
+            return activeCrowd[index];
+        }
+
         private void OnDisable()
         {
             if (GameStateManager.Instance != null)
@@ -140,7 +146,7 @@ namespace SnowmanCount.Gameplay
         private Vector3 GetPolarOffset(float angle, float radius)
         {
             float rad = angle * Mathf.Deg2Rad;
-            return new Vector3(Mathf.Cos(rad) * radius, -0.5f, Mathf.Sin(rad) * radius);
+            return new Vector3(Mathf.Cos(rad) * radius, 0f, Mathf.Sin(rad) * radius);
         }
 
         private float GetDynamicRadius(int count)
@@ -213,9 +219,8 @@ namespace SnowmanCount.Gameplay
                 GameObject follower = activeCrowd[i];
                 FollowerComponent fc = follower.GetComponent<FollowerComponent>();
 
-                if (fc != null && fc.isFalling)
+                if (fc != null && (fc.isFalling || fc.isDueling))
                 {
-                    // 추락 중인 유닛은 이동 로직에서 제외
                     continue;
                 }
 
@@ -225,26 +230,14 @@ namespace SnowmanCount.Gameplay
 
         private void MoveFollower(GameObject follower)
         {
+            if (follower == null) return;
+
             FollowerComponent fc = follower.GetComponent<FollowerComponent>();
             if (fc == null) return;
 
             Vector3 targetPos = playerPivot.position + GetPolarOffset(fc.targetAngle, fc.targetRadius);
 
-            Vector3 currentPos = follower.transform.position;
-            float distance = Vector3.Distance(currentPos, targetPos);
-
-            if (distance > 1f)
-            {
-                follower.transform.position = targetPos;
-            }
-            else
-            {
-                follower.transform.position = Vector3.Lerp(
-                    currentPos,
-                    targetPos,
-                    lerpSpeed * Time.deltaTime
-                );
-            }
+            follower.transform.position = targetPos;
         }
 
         public void NotifyCountChanged()
@@ -393,6 +386,85 @@ namespace SnowmanCount.Gameplay
         {
             if (follower == null) return;
             objectPooler.ReturnToPool(follower);
+        }
+
+        public GameObject FindClosestFollowerForDuel(Vector3 enemyPosition, float xRange, float zRange)
+        {
+            GameObject closest = null;
+            float closestDistSq = float.MaxValue;
+
+            foreach (GameObject follower in activeCrowd)
+            {
+                if (follower == null) continue;
+
+                FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+                if (fc == null || fc.isDueling) continue;
+
+                Vector3 offset = follower.transform.position - enemyPosition;
+                if (Mathf.Abs(offset.x) > xRange) continue;
+                if (Mathf.Abs(offset.z) > zRange) continue;
+
+                float distSq = offset.sqrMagnitude;
+                if (distSq < closestDistSq)
+                {
+                    closestDistSq = distSq;
+                    closest = follower;
+                }
+            }
+
+            return closest;
+        }
+
+        public bool TryReserveClosestFollowerForDuel(Vector3 enemyPosition, float xRange, float zRange, out GameObject follower)
+        {
+            follower = FindClosestFollowerForDuel(enemyPosition, xRange, zRange);
+
+            if (follower != null)
+            {
+                FollowerComponent fc = follower.GetComponent<FollowerComponent>();
+                if (fc != null)
+                {
+                    fc.isDueling = true;
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryRemoveClosestFollowerForDuel(Vector3 enemyPosition, float xRange, float zRange)
+        {
+            if (TryReserveClosestFollowerForDuel(enemyPosition, xRange, zRange, out GameObject follower))
+            {
+                RemoveSpecificFollower(follower);
+                return true;
+            }
+
+            return false;
+        }
+
+        public GameObject FindNearestAvailableFollower(Vector3 position)
+        {
+            GameObject nearest = null;
+            float minDist = 1000f;
+
+            for (int i = 0; i < activeCrowd.Count; i++)
+            {
+                GameObject f = activeCrowd[i];
+                if (f == null) continue;
+
+                FollowerComponent fc = f.GetComponent<FollowerComponent>();
+                if (fc == null || fc.isDueling || fc.isFalling) continue;
+
+                float dist = Vector3.Distance(position, f.transform.position);
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    nearest = f;
+                }
+            }
+
+            return nearest;
         }
     }
 }
