@@ -11,6 +11,7 @@ namespace SnowmanCount.Gameplay
     {
         [Header("Crowd Settings")]
         [SerializeField] private int initialCount = 5;
+        [SerializeField] private int maxFollowers = 250;
         [SerializeField] private float unitRadius = 0.5f;
         [SerializeField] private float lerpSpeed = 5f;
         [SerializeField] private ObjectPooler objectPooler;
@@ -28,6 +29,7 @@ namespace SnowmanCount.Gameplay
         public event Action OnCrowdDepleted;
 
         public int CurrentCount => activeCrowd.Count;
+        public int TotalCount { get; private set; }
 
         public GameObject GetFollowerAtIndex(int index)
         {
@@ -41,6 +43,8 @@ namespace SnowmanCount.Gameplay
             {
                 GameStateManager.Instance.OnStateChanged -= OnGameStateChanged;
             }
+
+            GameManager.OnLeaderHit -= OnLeaderHit;
         }
 
         private void OnGameStateChanged(GameState newState)
@@ -59,6 +63,8 @@ namespace SnowmanCount.Gameplay
             {
                 canUpdate = false;
             }
+
+            GameManager.OnLeaderHit += OnLeaderHit;
 
             playerPivot = transform;
 
@@ -86,9 +92,10 @@ namespace SnowmanCount.Gameplay
             }
 
             SpawnFollowers(targetCount);
+            TotalCount = activeCrowd.Count;
 
             Debug.Log($"[CrowdController] Initial crowd spawned: {CurrentCount}");
-            OnCrowdCountChanged?.Invoke(CurrentCount);
+            OnCrowdCountChanged?.Invoke(TotalCount);
         }
         private void SpawnFollowers(int count)
         {
@@ -242,7 +249,7 @@ namespace SnowmanCount.Gameplay
 
         public void NotifyCountChanged()
         {
-            OnCrowdCountChanged?.Invoke(CurrentCount);
+            OnCrowdCountChanged?.Invoke(TotalCount);
         }
 
         private void NotifyDepleted()
@@ -289,13 +296,31 @@ namespace SnowmanCount.Gameplay
 
         public void AddCrowd(int count)
         {
-            SpawnFollowers(count);
+            TotalCount += count;
 
-            Debug.Log($"[CrowdController] Added {count}. Total: {CurrentCount}");
+            int space = maxFollowers - activeCrowd.Count;
+            int visualCount = Mathf.Min(count, Mathf.Max(0, space));
+
+            if (visualCount > 0)
+            {
+                SpawnFollowers(visualCount);
+            }
+
+            Debug.Log($"[CrowdController] Added {count} (visual:{visualCount}). Total: {TotalCount}, Visual: {CurrentCount}");
+        }
+
+        private void OnLeaderHit()
+        {
+            if (CurrentCount > 0)
+            {
+                RemoveCrowd(1);
+            }
         }
 
         public void RemoveCrowd(int count)
         {
+            TotalCount = Mathf.Max(0, TotalCount - count);
+
             int removeCount = Mathf.Min(count, activeCrowd.Count);
 
             for (int i = 0; i < removeCount; i++)
@@ -303,9 +328,9 @@ namespace SnowmanCount.Gameplay
                 RemoveLastFollower();
             }
 
-            Debug.Log($"[CrowdController] Removed {count}. Total: {CurrentCount}");
+            Debug.Log($"[CrowdController] Removed {count}. Total: {TotalCount}, Visual: {CurrentCount}");
 
-            if (CurrentCount <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }
@@ -356,13 +381,13 @@ namespace SnowmanCount.Gameplay
         public void RemoveSpecificFollower(GameObject follower)
         {
             if (follower == null) return;
+            TotalCount = Mathf.Max(0, TotalCount - 1);
             if (!activeCrowd.Remove(follower)) return;
 
             objectPooler.ReturnToPool(follower);
-            // 대형 재계산 제거
             NotifyCountChanged();
 
-            if (CurrentCount <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }
@@ -376,7 +401,7 @@ namespace SnowmanCount.Gameplay
             // 대형 재계산 제거
             NotifyCountChanged();
 
-            if (CurrentCount <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }

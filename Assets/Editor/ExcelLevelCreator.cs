@@ -64,8 +64,12 @@ public static class ExcelLevelCreator
             IRow row = sheet.CreateRow(i + 1);
             row.CreateCell(0).SetCellValue((double)data[i][0]);
             row.CreateCell(1).SetCellValue((string)data[i][1]);
-            row.CreateCell(2).SetCellValue((string)data[i][2]);
-            row.CreateCell(3).SetCellValue((string)data[i][3]);
+            ICell valueCell = row.CreateCell(2);
+            valueCell.SetCellType(CellType.String);
+            valueCell.SetCellValue((string)data[i][2]);
+            ICell subValueCell = row.CreateCell(3);
+            subValueCell.SetCellType(CellType.String);
+            subValueCell.SetCellValue((string)data[i][3]);
         }
     }
 

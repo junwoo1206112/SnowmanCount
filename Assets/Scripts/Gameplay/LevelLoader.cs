@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -16,10 +17,16 @@ namespace SnowmanCount.Gameplay
         [SerializeField] private GameObject bossPrefab;
         [Header("Road Settings")]
         [SerializeField] private Material roadMaterial;
-        [SerializeField] private float roadWidthMultiplier = 2.0f;
+        [SerializeField] private float roadWidthMultiplier = 3.0f;
 
         private ILevelDataProvider dataProvider;
         private LevelData currentLevelData;
+        private bool hasBossInLevel;
+        private GameObject lastFinishLineObject;
+        private List<float> stepWidths = new List<float>();
+        private List<float> stepSpacingsX = new List<float>();
+        private List<int> stepCols = new List<int>();
+        private float highestMultiplier;
 
         private void Start()
         {
@@ -91,19 +98,6 @@ namespace SnowmanCount.Gameplay
                 if (row.objectType.ToLower() == "hole") continue; // 구멍은 타일 시스템에서 처리
                 SpawnObject(row);
             }
-
-            float bossDistance = -1f;
-            foreach (var row in data.rows)
-            {
-                if (row.objectType.ToLower() == "boss" && row.distance > bossDistance)
-                {
-                    bossDistance = row.distance;
-                }
-            }
-
-            int waveCount = GameManager.currentLevel * 10;
-            float waveZ = bossDistance > 0f ? bossDistance - 30f : maxDistance - 20f;
-            SpawnEnemyWave(waveZ, waveCount);
 
             SetProgressBarLength(maxDistance);
         }
@@ -331,7 +325,11 @@ namespace SnowmanCount.Gameplay
                 case "hole":
                     break;
                 case "boss":
-                    SpawnBoss(position, row.value, row.subValue);
+                    hasBossInLevel = true;
+                    SpawnBoss(position, row.value);
+                    break;
+                case "finish":
+                    lastFinishLineObject = SpawnFinishLine(position);
                     break;
                 default:
                     Debug.LogWarning($"[LevelLoader] Unknown object type: {row.objectType}");
@@ -339,10 +337,9 @@ namespace SnowmanCount.Gameplay
             }
         }
 
-        private void SpawnBoss(Vector3 position, string hpValue, string minionCountValue)
+        private void SpawnBoss(Vector3 position, string hpValue)
         {
             int hp = int.TryParse(hpValue, out int h) ? h : 30;
-            int minionCount = int.TryParse(minionCountValue, out int m) ? m : 6;
 
             GameObject bossObj;
 
@@ -382,11 +379,32 @@ namespace SnowmanCount.Gameplay
 
             BossController boss = bossObj.GetComponent<BossController>();
             if (boss == null) boss = bossObj.AddComponent<BossController>();
-            boss.Setup(hp, minionCount);
+            boss.Setup(hp);
 
             bossObj.AddComponent<WorldMover>();
 
-            Debug.Log($"[LevelLoader] Boss at {position}: HP={hp}, Minions={minionCount}");
+            Debug.Log($"[LevelLoader] Boss at {position}: HP={hp}");
+        }
+
+        private GameObject SpawnFinishLine(Vector3 position)
+        {
+            position.y = 0f;
+            float roadW = GetTotalWidth();
+
+            GameObject finishObj = new GameObject("FinishLine");
+            finishObj.transform.position = position;
+
+            BoxCollider col = finishObj.AddComponent<BoxCollider>();
+            col.size = new Vector3(roadW + 2f, 6f, 2f);
+            col.isTrigger = true;
+
+            FinishLineController flc = finishObj.AddComponent<FinishLineController>();
+            flc.SetRoadWidth(roadW);
+            finishObj.AddComponent<WorldMover>();
+
+            Debug.Log($"[LevelLoader] Finish line at {position}");
+
+            return finishObj;
         }
 
         private void SpawnGate(Vector3 position, string leftGate, string rightGate)
@@ -425,8 +443,23 @@ namespace SnowmanCount.Gameplay
 
         private void SpawnSingleGate(Vector3 position, string gateData)
         {
-            string op = gateData.Length > 0 ? gateData[0].ToString() : "+";
-            int val = gateData.Length > 1 && int.TryParse(gateData.Substring(1), out int v) ? v : 5;
+            string op = "+";
+            int val = 5;
+
+            if (gateData.Length > 0)
+            {
+                char first = gateData[0];
+                if (first == '+' || first == 'x' || first == '*' || first == '-' || first == '÷' || first == '/')
+                {
+                    op = first.ToString();
+                    val = gateData.Length > 1 && int.TryParse(gateData.Substring(1), out int v) ? v : 5;
+                }
+                else
+                {
+                    op = "+";
+                    val = int.TryParse(gateData, out int v) ? v : 5;
+                }
+            }
 
             GameObject gate = Instantiate(gatePrefab, position, Quaternion.identity);
             gate.transform.localScale = new Vector3(3f, 4f, 1f);
@@ -545,8 +578,18 @@ namespace SnowmanCount.Gameplay
         {
             yield return new WaitForSecondsRealtime(0.3f);
 
+            if (hasBossInLevel)
+            {
+                yield return new WaitForSecondsRealtime(1f);
+                Time.timeScale = 1f;
+                GameManager.AdvanceLevel();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                yield break;
+            }
+
             CrowdController crowd = FindFirstObjectByType<CrowdController>();
             int totalFollowers = crowd != null ? crowd.CurrentCount : 0;
+            int totalFollowerCount = crowd != null ? crowd.TotalCount : 0;
 
             if (crowd == null || totalFollowers <= 0)
             {
@@ -565,72 +608,148 @@ namespace SnowmanCount.Gameplay
             WorldMover[] movers = FindObjectsByType<WorldMover>(FindObjectsSortMode.None);
             foreach (var m in movers) m.SetSpeed(0f);
 
-            int[] stepCapacities = { 16, 14, 12, 10, 8, 6, 4, 2 };
-            int remaining = totalFollowers;
+            EnemyGroup[] enemyGroups = FindObjectsByType<EnemyGroup>(FindObjectsSortMode.None);
+            foreach (var g in enemyGroups) Destroy(g.gameObject);
+
+            EnemyMinion[] minions = FindObjectsByType<EnemyMinion>(FindObjectsSortMode.None);
+            foreach (var m in minions) Destroy(m.gameObject);
+
+            ObstacleController[] obstacles = FindObjectsByType<ObstacleController>(FindObjectsSortMode.None);
+            foreach (var o in obstacles) Destroy(o.gameObject);
+
+            BossController[] bosses = FindObjectsByType<BossController>(FindObjectsSortMode.None);
+            foreach (var b in bosses) Destroy(b.gameObject);
+
+            Vector3 finishPos = lastFinishLineObject != null
+                ? lastFinishLineObject.transform.position
+                : new Vector3(0f, 0f, 8f);
+            float roadW = GetTotalWidth();
+            float pivotX = finishPos.x;
+            float pivotZ = finishPos.z + roadW * 0.4f;
+            float pivotY = 0f;
+            float stepRise = 0.55f;
+            float stepBack = 0.8f;
+            float unitSpacingZ = 0.55f;
+
             int stepsNeeded = 0;
-            for (int i = 0; i < stepCapacities.Length; i++)
+            int rem = totalFollowers;
+            while (rem > 0 && stepsNeeded < 16)
             {
-                if (remaining <= 0) break;
-                remaining -= stepCapacities[i];
+                int cols = Mathf.Max(1, 14 - stepsNeeded);
+                int rows = Mathf.Max(1, 6 - stepsNeeded / 2);
+                rem -= cols * rows;
                 stepsNeeded++;
             }
 
-            Vector3 pivot = transform.position + new Vector3(0f, 0f, 8f);
-            float stepHeight = 0.6f;
-            float stepDepth = 1.2f;
-            float baseWidth = 3f;
-
-            for (int i = 0; i < stepsNeeded; i++)
+            if (GameManager.Instance != null)
             {
-                GameObject step = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                step.name = $"StairStep_{i}";
-                float w = baseWidth + i * 0.5f;
-                step.transform.localScale = new Vector3(w, 0.2f, stepDepth);
-                step.transform.position = pivot + new Vector3(0f, i * stepHeight, -i * stepDepth);
-
-                Renderer r = step.GetComponent<Renderer>();
-                if (r != null) r.material.color = new Color(0.9f, 0.85f, 0.7f);
-                Destroy(step.GetComponent<Collider>());
-
-                yield return new WaitForSecondsRealtime(0.08f);
+                GameManager.Instance.StartCoroutine(ZoomOutForStaircase(stepsNeeded));
             }
 
-            yield return new WaitForSecondsRealtime(0.3f);
-
-            int followerIdx = 0;
+            float maxCols = 14f;
             for (int s = 0; s < stepsNeeded; s++)
             {
-                int cap = stepCapacities[s];
-                int onStep = Mathf.Min(cap, totalFollowers - followerIdx);
-                float stepY = pivot.y + s * stepHeight;
-                float stepZ = pivot.z - s * stepDepth;
-                float w = baseWidth + s * 0.5f;
+                int cols = Mathf.Max(1, 14 - s);
+                int rows = Mathf.Max(1, 6 - s / 2);
+                float ratio = cols / maxCols;
+                float stepW = roadW * 0.85f * ratio;
+                float stepD = Mathf.Max(0.6f, rows * unitSpacingZ + 0.2f);
+                float centerZ = pivotZ + s * stepBack;
+                float spacingX = stepW / (cols + 1);
 
-                for (int j = 0; j < onStep && followerIdx < totalFollowers; j++, followerIdx++)
+                GameObject step = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                step.name = $"StairStep_{s}";
+                step.transform.localScale = new Vector3(stepW, 0.2f, stepD);
+                step.transform.position = new Vector3(pivotX, pivotY + s * stepRise, centerZ);
+
+                Renderer r = step.GetComponent<Renderer>();
+                if (r != null)
                 {
-                    GameObject f = crowd.GetFollowerAtIndex(followerIdx);
-                    if (f != null)
+                    r.material.color = new Color(1f, 0.78f, 0.06f);
+                    r.material.SetFloat("_Metallic", 0.6f);
+                }
+                Destroy(step.GetComponent<Collider>());
+
+                float multVal = 1.0f + (s + 1) * 0.1f;
+                GameObject labelObj = new GameObject($"StepLabel_{s}");
+                labelObj.transform.SetParent(step.transform);
+                labelObj.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+                TextMesh labelText = labelObj.AddComponent<TextMesh>();
+                labelText.text = $"\u00D7{multVal:F1}";
+                labelText.fontSize = 100;
+                labelText.characterSize = 0.12f;
+                labelText.anchor = TextAnchor.MiddleCenter;
+                labelText.alignment = TextAlignment.Center;
+                labelText.fontStyle = FontStyle.Bold;
+                labelText.color = Color.white;
+
+                stepWidths.Add(stepW);
+                stepSpacingsX.Add(spacingX);
+                stepCols.Add(cols);
+                yield return new WaitForSecondsRealtime(0.06f);
+            }
+
+            yield return new WaitForSecondsRealtime(0.2f);
+
+            int followerIdx = 0;
+            highestMultiplier = 0;
+            for (int s = 0; s < stepsNeeded; s++)
+            {
+                int cols = stepCols[s];
+                int rows = Mathf.Max(1, 6 - s / 2);
+                float centerZ = pivotZ + s * stepBack;
+                float stepDuration = Mathf.Lerp(0.15f, 0.35f, (float)s / stepsNeeded);
+                float spacingX = stepSpacingsX[s];
+
+                for (int r = 0; r < rows && followerIdx < totalFollowers; r++)
+                {
+                    int[] colOrder = new int[cols];
+                    int mid = cols / 2;
+                    for (int i = 0; i < cols; i++)
                     {
+                        colOrder[i] = (i % 2 == 0) ? mid + i / 2 : mid - (i + 1) / 2;
+                        if (colOrder[i] < 0) colOrder[i] = cols - 1 + colOrder[i];
+                        if (colOrder[i] >= cols) colOrder[i] = 0;
+                    }
+
+                    for (int ci = 0; ci < cols && followerIdx < totalFollowers; ci++, followerIdx++)
+                    {
+                        int c = colOrder[ci];
+                        GameObject f = crowd.GetFollowerAtIndex(followerIdx);
+                        if (f == null) continue;
+
                         FollowerComponent fc = f.GetComponent<FollowerComponent>();
                         if (fc != null) fc.isDueling = true;
 
-                        bool isLeft = j % 2 == 0;
-                        float xOff = (isLeft ? -1 : 1) * (w * 0.35f);
-                        Vector3 targetPos = new Vector3(pivot.x + xOff, stepY + 2f, stepZ);
-                        Vector3 endPos = new Vector3(pivot.x + xOff, stepY + 0.1f, stepZ);
+                        float xOff = (c - (cols - 1) * 0.5f) * spacingX;
+                        float zOff = (r - (rows - 1) * 0.5f) * unitSpacingZ;
+                        float targetY = pivotY + s * stepRise + 0.1f;
 
-                        StartCoroutine(ClimbToPosition(f, targetPos, endPos, 0.4f));
+                        float stepMult = 1.0f + (s + 1) * 0.1f;
+                        if (stepMult > highestMultiplier)
+                        {
+                            highestMultiplier = stepMult;
+                        }
+
+                        Vector3 endPos = new Vector3(
+                            pivotX + xOff,
+                            targetY,
+                            centerZ + zOff
+                        );
+
+                        StartCoroutine(HopToPosition(f, endPos, stepDuration));
+                        yield return new WaitForSecondsRealtime(0.02f);
                     }
-
-                    yield return new WaitForSecondsRealtime(0.06f);
                 }
             }
 
-            yield return new WaitForSecondsRealtime(0.8f);
+            yield return new WaitForSecondsRealtime(1f);
 
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.SendMessage("ShowLevelClearUI", totalFollowers);
+                float mult = highestMultiplier > 0 ? highestMultiplier : 1.1f;
+                int finalScore = Mathf.RoundToInt(totalFollowerCount * mult);
+                GameManager.Instance.ShowLevelClearResult(totalFollowerCount, mult, finalScore);
                 GameManager.Instance.SendMessage("UpdateLevelNumberDisplay");
             }
 
@@ -641,26 +760,65 @@ namespace SnowmanCount.Gameplay
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
-        private IEnumerator ClimbToPosition(GameObject obj, Vector3 peak, Vector3 land, float duration)
+        private IEnumerator HopToPosition(GameObject obj, Vector3 land, float duration)
         {
             if (obj == null) yield break;
 
             Vector3 start = obj.transform.position;
+            float heightDiff = Mathf.Abs(land.y - start.y);
+            float hopHeight = Mathf.Max(0.8f, heightDiff * 1.5f + 0.5f);
             float elapsed = 0f;
 
             while (elapsed < duration)
             {
                 if (obj == null) yield break;
-                elapsed += Time.deltaTime;
+                elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                Vector3 pos = Vector3.Lerp(Vector3.Lerp(start, peak, t), land, t * t);
+                Vector3 pos = Vector3.Lerp(start, land, t);
+                float arc = hopHeight * Mathf.Sin(t * Mathf.PI);
+                arc *= 1f + 0.3f * Mathf.Sin(t * Mathf.PI * 3f);
+                pos.y += arc;
+
                 obj.transform.position = pos;
 
                 yield return null;
             }
 
             if (obj != null) obj.transform.position = land;
+        }
+
+        private IEnumerator ZoomOutForStaircase(int stepCount)
+        {
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            Camera cam = Camera.main;
+            if (cam == null) yield break;
+
+            Vector3 startPos = cam.transform.position;
+            Vector3 startAngles = cam.transform.eulerAngles;
+            float pyramidHeight = stepCount * 0.6f;
+            float pyramidDepth = stepCount * 0.9f;
+            Vector3 targetPos = startPos + new Vector3(0f, pyramidHeight * 0.7f + 2f, -4f);
+            Vector3 targetAngles = new Vector3(
+                Mathf.Lerp(startAngles.x, 10f, 0.5f),
+                startAngles.y,
+                startAngles.z
+            );
+            float duration = 1.5f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                cam.transform.position = Vector3.Lerp(startPos, targetPos, t);
+                cam.transform.eulerAngles = Vector3.Lerp(startAngles, targetAngles, t);
+                yield return null;
+            }
+
+            cam.transform.position = targetPos;
+            cam.transform.eulerAngles = targetAngles;
         }
     }
 }

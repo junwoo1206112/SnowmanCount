@@ -1419,9 +1419,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: SnowmanCount.Gameplay::SnowmanCount.Gameplay.LevelLoader
   gatePrefab: {fileID: 7972660365274756914, guid: 14f40711dacfeb945a68328acbd97b44, type: 3}
   enemyPrefab: {fileID: 1583584510044132805, guid: 5ba688e0671fdea4193380edcba764bb, type: 3}
-  bossPrefab: {fileID: 1583584510044132805, guid: 5ba688e0671fdea4193380edcba764bb, type: 3}
+  bossPrefab: {fileID: 1223712169240540049, guid: 7aa5cc66518245c45bf21a915cb1a7ec, type: 3}
   roadMaterial: {fileID: 0}
-  roadWidthMultiplier: 1.5
+  roadWidthMultiplier: 3.0
 --- !u!4 &1326029013
 Transform:
   m_ObjectHideFlags: 0

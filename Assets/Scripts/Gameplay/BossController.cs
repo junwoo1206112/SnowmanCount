@@ -25,7 +25,7 @@ namespace SnowmanCount.Gameplay
         private TextMesh hpTextMesh;
         private bool isDead;
 
-        public void Setup(int hp, int count = 6)
+        public void Setup(int hp)
         {
             maxHP = hp;
             currentHP = hp;
@@ -174,7 +174,9 @@ namespace SnowmanCount.Gameplay
 
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnBossDefeated();
+                CrowdController crowd = FindFirstObjectByType<CrowdController>();
+                int count = crowd != null ? crowd.CurrentCount : 0;
+                GameManager.Instance.OnBossDefeated(count);
             }
 
             Destroy(gameObject);

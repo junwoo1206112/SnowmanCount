@@ -86,7 +86,8 @@ namespace SnowmanCount.Data
             switch (cell.CellType)
             {
                 case CellType.String:
-                    return cell.StringCellValue;
+                    try { return cell.StringCellValue; }
+                    catch { return string.Empty; }
                 case CellType.Numeric:
                     return cell.NumericCellValue.ToString();
                 default:

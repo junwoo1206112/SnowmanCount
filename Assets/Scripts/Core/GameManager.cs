@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,6 +15,12 @@ namespace SnowmanCount.Core
         public static int currentLevel { get; private set; } = 1;
         public static int carryOverCrowdCount { get; set; } = -1;
 
+        public static int totalCoins { get; private set; }
+
+        public static event System.Action OnLeaderHit;
+
+        private const string COIN_KEY = "SnowmanCount_Coins";
+
         public static void AdvanceLevel()
         {
             currentLevel++;
@@ -25,7 +32,6 @@ namespace SnowmanCount.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
         {
-            currentLevel = 1;
             carryOverCrowdCount = -1;
         }
 
@@ -39,6 +45,8 @@ namespace SnowmanCount.Core
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            totalCoins = PlayerPrefs.GetInt(COIN_KEY, 0);
 
             tapRegistered = false;
 
@@ -71,6 +79,7 @@ namespace SnowmanCount.Core
             HideEndStateUI();
             GameStateManager.Instance.SetState(GameState.Ready);
             UpdateLevelNumberDisplay();
+            UpdateCoinDisplay();
         }
 
         private void Update()
@@ -168,6 +177,35 @@ namespace SnowmanCount.Core
             }
         }
 
+        public void ShowLevelClearResult(int crowdCount, float multiplier, int finalScore)
+        {
+            int coinsEarned = finalScore;
+            totalCoins += coinsEarned;
+            PlayerPrefs.SetInt(COIN_KEY, totalCoins);
+            PlayerPrefs.Save();
+
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+
+            if (canvas != null)
+            {
+                Transform clearText = canvas.transform.Find("LevelClearText");
+
+                if (clearText != null)
+                {
+                    UnityEngine.UI.Text textComp = clearText.GetComponent<UnityEngine.UI.Text>();
+                    if (textComp != null)
+                    {
+                        textComp.text = $"FINAL SCORE\n{crowdCount} \u00D7 {multiplier:F1} = {finalScore}\n\n+ {coinsEarned} COINS";
+                    }
+                    clearText.gameObject.SetActive(true);
+                }
+            }
+
+            UpdateCoinDisplay();
+
+            Time.timeScale = 0f;
+        }
+
         private void ShowLevelClearUI(int crowdCount)
         {
             Canvas canvas = FindFirstObjectByType<Canvas>();
@@ -208,19 +246,19 @@ namespace SnowmanCount.Core
 
         public void OnLeaderDied()
         {
-            Debug.Log("[GameManager] Leader died - Removing one follower");
-
-            if (GameStateManager.Instance != null)
-            {
-                GameStateManager.Instance.SetState(GameState.GameOver);
-            }
+            OnLeaderHit?.Invoke();
         }
 
-        public void OnBossDefeated()
+        public void OnBossDefeated(int crowdCount = 0)
         {
             Debug.Log("[GameManager] Boss defeated - Level cleared!");
 
             carryOverCrowdCount = -1;
+
+            int bossCoins = 100 + crowdCount * 5;
+            totalCoins += bossCoins;
+            PlayerPrefs.SetInt(COIN_KEY, totalCoins);
+            PlayerPrefs.Save();
 
             if (GameStateManager.Instance != null)
             {
@@ -339,6 +377,45 @@ namespace SnowmanCount.Core
             if (retryBtn != null)
             {
                 retryBtn.gameObject.SetActive(false);
+            }
+        }
+
+        public void UpdateCoinDisplay()
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+
+            if (canvas == null) return;
+
+            Transform coinTextTransform = canvas.transform.Find("CoinText");
+            UnityEngine.UI.Text coinText;
+
+            if (coinTextTransform == null)
+            {
+                GameObject coinObj = new GameObject("CoinText");
+                coinObj.transform.SetParent(canvas.transform, false);
+
+                RectTransform rt = coinObj.AddComponent<RectTransform>();
+                rt.anchorMin = new Vector2(1f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-20f, -20f);
+                rt.sizeDelta = new Vector2(200f, 40f);
+
+                coinText = coinObj.AddComponent<UnityEngine.UI.Text>();
+                coinText.font = Resources.GetBuiltinResource<UnityEngine.Font>("LegacyRuntime.ttf");
+                coinText.fontSize = 28;
+                coinText.fontStyle = FontStyle.Bold;
+                coinText.alignment = TextAnchor.UpperRight;
+                coinText.color = new Color(1f, 0.85f, 0.1f);
+            }
+            else
+            {
+                coinText = coinTextTransform.GetComponent<UnityEngine.UI.Text>();
+            }
+
+            if (coinText != null)
+            {
+                coinText.text = $"\u25C6 {totalCoins}";
             }
         }
 
