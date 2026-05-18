@@ -2,10 +2,19 @@ using UnityEngine;
 
 namespace SnowmanCount.Gameplay
 {
+    public enum ObstacleType
+    {
+        Generic,
+        Saw,
+        Wall,
+        Spinner,
+        Hammer
+    }
+
     public class ObstacleController : MonoBehaviour
     {
         [Header("Obstacle Settings")]
-        [SerializeField] private string obstacleType = "Saw";
+        [SerializeField] private ObstacleType obstacleType = ObstacleType.Generic;
         [SerializeField] private int damagePerHit = 1;
 
         private CrowdController crowdController;
@@ -14,6 +23,11 @@ namespace SnowmanCount.Gameplay
         public void SetDamage(int damage)
         {
             damagePerHit = damage;
+        }
+
+        public void SetObstacleType(ObstacleType type)
+        {
+            obstacleType = type;
         }
 
         private void Start()
@@ -45,7 +59,22 @@ namespace SnowmanCount.Gameplay
                 Debug.Log($"[ObstacleController] {obstacleType} hit {other.name}. Removed 1 follower.");
             }
 
-            Destroy(gameObject);
+            if (obstacleType == ObstacleType.Wall)
+            {
+                Transform parent = transform.parent;
+                if (parent != null)
+                {
+                    Destroy(parent.gameObject);
+                }
+                else
+                {
+                    Destroy(gameObject);
+                }
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

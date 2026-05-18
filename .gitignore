@@ -37,3 +37,8 @@ NuGet/
 Assets/NuGet/
 # NPOI source packages
 Assets/Packages/
+# Temp files
+temp_xlsx.js
+nul
+# Temp clone
+UsersadminAppDataLocalTempunity-cli-git/

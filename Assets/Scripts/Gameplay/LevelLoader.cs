@@ -26,7 +26,157 @@ namespace SnowmanCount.Gameplay
         private List<float> stepWidths = new List<float>();
         private List<float> stepSpacingsX = new List<float>();
         private List<int> stepCols = new List<int>();
+        private List<float> stepDepths = new List<float>();
         private float highestMultiplier;
+
+        private static Material goldEmissionMaterial;
+        private static Material goldDarkMaterial;
+        private static Material goldAccentMaterial;
+
+        private static Material GetGoldEmissionMaterial()
+        {
+            if (goldEmissionMaterial == null)
+            {
+                goldEmissionMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                goldEmissionMaterial.color = new Color(1f, 0.78f, 0.06f);
+                goldEmissionMaterial.SetFloat("_Metallic", 0.6f);
+                goldEmissionMaterial.SetFloat("_Smoothness", 0.4f);
+                goldEmissionMaterial.EnableKeyword("_EMISSION");
+                goldEmissionMaterial.SetColor("_EmissionColor", new Color(1f, 0.78f, 0.06f) * 0.3f);
+            }
+            return goldEmissionMaterial;
+        }
+
+        private static Material GetGoldDarkMaterial()
+        {
+            if (goldDarkMaterial == null)
+            {
+                goldDarkMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                goldDarkMaterial.color = new Color(0.6f, 0.4f, 0.05f);
+                goldDarkMaterial.SetFloat("_Metallic", 0.3f);
+                goldDarkMaterial.SetFloat("_Smoothness", 0.2f);
+            }
+            return goldDarkMaterial;
+        }
+
+        private static Material GetGoldAccentMaterial()
+        {
+            if (goldAccentMaterial == null)
+            {
+                goldAccentMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                goldAccentMaterial.color = new Color(1f, 0.9f, 0.28f);
+                goldAccentMaterial.SetFloat("_Metallic", 0.45f);
+                goldAccentMaterial.SetFloat("_Smoothness", 0.55f);
+                goldAccentMaterial.EnableKeyword("_EMISSION");
+                goldAccentMaterial.SetColor("_EmissionColor", new Color(1f, 0.75f, 0.12f) * 0.18f);
+            }
+            return goldAccentMaterial;
+        }
+
+        private static GameObject CreateStairCube(string objectName, Vector3 scale, Vector3 position, Material material)
+        {
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = objectName;
+            cube.transform.localScale = scale;
+            cube.transform.position = position;
+
+            Renderer renderer = cube.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material = material;
+            }
+
+            Destroy(cube.GetComponent<Collider>());
+            return cube;
+        }
+
+        private static int GetStairCols(int stepIndex)
+        {
+            return Mathf.Max(2, 8 - stepIndex / 6);
+        }
+
+        private static int GetStairRows(int stepIndex)
+        {
+            return Mathf.Max(1, 2 - stepIndex / 36);
+        }
+
+        private static float GetStairWidthRatio(int stepIndex, int stepCount)
+        {
+            if (stepCount <= 1)
+            {
+                return 0.7f;
+            }
+
+            float t = stepIndex / (float)(stepCount - 1);
+            return Mathf.Lerp(0.64f, 0.16f, t);
+        }
+
+        private static int GetMinimumVisibleStairCount(int totalFollowers)
+        {
+            return totalFollowers >= 80 ? 42 : 24;
+        }
+
+        private static void BuildStairBlockDetails(
+            int stepIndex,
+            int cols,
+            int rows,
+            float pivotX,
+            float centerZ,
+            float stepY,
+            float stepW,
+            float stepD,
+            float stepRise,
+            float unitSpacingZ)
+        {
+            float tileW = Mathf.Min(0.45f, stepW / (cols + 1) * 0.82f);
+            float tileD = Mathf.Min(0.48f, unitSpacingZ * 0.78f);
+            float tileH = 0.08f;
+            float usableZ = Mathf.Max(0.1f, stepD - 0.18f);
+            float spacingX = stepW / (cols + 1);
+            float spacingZ = rows <= 1 ? 0f : usableZ / rows;
+            Material accentMaterial = GetGoldAccentMaterial();
+            Material darkMaterial = GetGoldDarkMaterial();
+
+            for (int r = 0; r < rows; r++)
+            {
+                float zOff = (r - (rows - 1) * 0.5f) * (rows <= 1 ? 0f : spacingZ);
+
+                for (int c = 0; c < cols; c++)
+                {
+                    float xOff = (c - (cols - 1) * 0.5f) * spacingX;
+                    CreateStairCube(
+                        $"StairTile_{stepIndex}_{r}_{c}",
+                        new Vector3(tileW, tileH, tileD),
+                        new Vector3(pivotX + xOff, stepY + 0.14f, centerZ + zOff),
+                        accentMaterial);
+                }
+            }
+
+            float riserTileH = Mathf.Max(0.12f, stepRise * 0.36f);
+            float riserZ = centerZ - stepD / 2f - 0.04f;
+            float lowerY = stepY - stepRise * 0.3f;
+            float upperY = stepY - stepRise * 0.72f;
+
+            for (int c = 0; c < cols; c++)
+            {
+                float xOff = (c - (cols - 1) * 0.5f) * spacingX;
+                Material material = c % 2 == 0 ? accentMaterial : darkMaterial;
+                CreateStairCube(
+                    $"StairFace_{stepIndex}_{c}",
+                    new Vector3(tileW, riserTileH, 0.1f),
+                    new Vector3(pivotX + xOff, lowerY, riserZ),
+                    material);
+
+                if (stepIndex > 0 && c % 2 == 0)
+                {
+                    CreateStairCube(
+                        $"StairFaceInset_{stepIndex}_{c}",
+                        new Vector3(tileW * 0.72f, riserTileH * 0.75f, 0.12f),
+                        new Vector3(pivotX + xOff, upperY, riserZ - 0.02f),
+                        darkMaterial);
+                }
+            }
+        }
 
         private void Start()
         {
@@ -72,7 +222,7 @@ namespace SnowmanCount.Gameplay
             float maxDistance = 0f;
             foreach (var row in data.rows) if (row.distance > maxDistance) maxDistance = row.distance;
             // 마지막 적 이후로도 조금 더 도로를 깔아줌
-            maxDistance += 50f;
+            maxDistance += 80f;
 
             CreateAllClearDetector();
 
@@ -320,7 +470,17 @@ namespace SnowmanCount.Gameplay
                     SpawnEnemy(position, row.value, int.TryParse(row.subValue, out int eCount) ? eCount : 3);
                     break;
                 case "obstacle":
-                    SpawnObstacle(position, row.value, row.subValue);
+                    if (row.value.ToLower() == "wall")
+                    {
+                        string[] parts = row.subValue.Split(',');
+                        string gapPos = parts.Length > 0 ? parts[0] : "center";
+                        string damage = parts.Length > 1 ? parts[1] : "1";
+                        SpawnWall(position, gapPos, damage);
+                    }
+                    else
+                    {
+                        SpawnObstacle(position, row.value, row.subValue);
+                    }
                     break;
                 case "hole":
                     break;
@@ -491,9 +651,23 @@ namespace SnowmanCount.Gameplay
 
         private void SpawnObstacle(Vector3 position, string obstacleType, string damageValue)
         {
-            if (obstacleType.ToLower() == "hammer")
+            string typeLower = obstacleType.ToLower();
+
+            if (typeLower == "hammer")
             {
                 SpawnHammer(position, damageValue);
+                return;
+            }
+
+            if (typeLower == "saw")
+            {
+                SpawnSaw(position, damageValue);
+                return;
+            }
+
+            if (typeLower == "spinner")
+            {
+                SpawnSpinner(position, damageValue);
                 return;
             }
 
@@ -525,6 +699,123 @@ namespace SnowmanCount.Gameplay
 
             Debug.Log($"[LevelLoader] Obstacle at {position}: {obstacleType}, damage: {damageValue}");
         }
+
+        private void SpawnSaw(Vector3 position, string damageValue)
+        {
+            GameObject saw = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            saw.name = "Saw_Obstacle";
+            saw.transform.position = position;
+            saw.transform.localScale = new Vector3(2f, 0.3f, 2f);
+
+            Renderer renderer = saw.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = new Color(0.6f, 0.6f, 0.6f);
+                renderer.material.SetFloat("_Metallic", 0.8f);
+            }
+
+            Collider col = saw.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            ObstacleController obstacleCtrl = saw.AddComponent<ObstacleController>();
+            obstacleCtrl.SetObstacleType(ObstacleType.Saw);
+            if (int.TryParse(damageValue, out int damage))
+            {
+                obstacleCtrl.SetDamage(damage);
+            }
+
+            saw.AddComponent<SawController>();
+            saw.AddComponent<WorldMover>();
+
+            Debug.Log($"[LevelLoader] Saw at {position}, damage: {damageValue}");
+        }
+
+        private void SpawnWall(Vector3 position, string gapPos, string damageValue)
+        {
+            float roadW = GetTotalWidth();
+            float wallHeight = 3f;
+            float wallThickness = 0.5f;
+            float gapWidth = roadW * 0.25f;
+            float halfRoad = roadW * 0.5f;
+
+            float gapCenter = 0f;
+            string gapLower = gapPos.ToLower();
+            if (gapLower == "left") gapCenter = -halfRoad + gapWidth;
+            else if (gapLower == "right") gapCenter = halfRoad - gapWidth;
+            else gapCenter = 0f;
+
+            float leftEdge = gapCenter - gapWidth / 2f;
+            float rightEdge = gapCenter + gapWidth / 2f;
+
+            void BuildSegment(float segLeft, float segRight)
+            {
+                if (segRight <= segLeft) return;
+                float segWidth = segRight - segLeft;
+                float segCenter = (segLeft + segRight) / 2f;
+
+                GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                segment.name = $"WallSegment_{gapPos}";
+                segment.transform.position = new Vector3(segCenter, wallHeight / 2f, position.z);
+                segment.transform.localScale = new Vector3(segWidth, wallHeight, wallThickness);
+
+                Renderer r = segment.GetComponent<Renderer>();
+                if (r != null) r.material.color = new Color(0.25f, 0.25f, 0.25f);
+
+                Collider col = segment.GetComponent<Collider>();
+                if (col != null) col.isTrigger = true;
+
+                ObstacleController ctrl = segment.AddComponent<ObstacleController>();
+                ctrl.SetObstacleType(ObstacleType.Wall);
+                if (int.TryParse(damageValue, out int damage))
+                {
+                    ctrl.SetDamage(damage);
+                }
+
+                segment.AddComponent<WorldMover>();
+            }
+
+            BuildSegment(-halfRoad, leftEdge);
+            BuildSegment(rightEdge, halfRoad);
+
+            Debug.Log($"[LevelLoader] Wall at {position}, gap: {gapPos}");
+        }
+
+        private void SpawnSpinner(Vector3 position, string damageValue)
+        {
+            float roadW = GetTotalWidth();
+            float barLength = roadW * 0.8f;
+
+            GameObject root = new GameObject("Spinner_Obstacle");
+            root.transform.position = new Vector3(0f, 1.5f, position.z);
+            root.AddComponent<WorldMover>();
+            root.AddComponent<SpinnerController>();
+
+            GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bar.name = "SpinnerBar";
+            bar.transform.SetParent(root.transform);
+            bar.transform.localPosition = Vector3.zero;
+            bar.transform.localScale = new Vector3(barLength, 0.3f, 0.5f);
+
+            Renderer renderer = bar.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = new Color(1f, 0.5f, 0f);
+                renderer.material.SetFloat("_Metallic", 0.5f);
+            }
+
+            Collider col = bar.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            ObstacleController ctrl = bar.AddComponent<ObstacleController>();
+            ctrl.SetObstacleType(ObstacleType.Spinner);
+            if (int.TryParse(damageValue, out int damage))
+            {
+                ctrl.SetDamage(damage);
+            }
+
+            Debug.Log($"[LevelLoader] Spinner at {position}, damage: {damageValue}");
+        }
+
         private void SpawnHammer(Vector3 position, string damageValue)
         {
             // 1. Root (회전축)
@@ -571,15 +862,18 @@ namespace SnowmanCount.Gameplay
 
         private void OnVictorySequence()
         {
+            Debug.Log("[LevelLoader] OnVictorySequence called");
             StartCoroutine(VictoryStaircaseRoutine());
         }
 
         private IEnumerator VictoryStaircaseRoutine()
         {
+            Debug.Log("[LevelLoader] VictoryStaircaseRoutine started");
             yield return new WaitForSecondsRealtime(0.3f);
 
             if (hasBossInLevel)
             {
+                Debug.Log("[LevelLoader] Boss level, skipping staircase");
                 yield return new WaitForSecondsRealtime(1f);
                 Time.timeScale = 1f;
                 GameManager.AdvanceLevel();
@@ -590,9 +884,11 @@ namespace SnowmanCount.Gameplay
             CrowdController crowd = FindFirstObjectByType<CrowdController>();
             int totalFollowers = crowd != null ? crowd.CurrentCount : 0;
             int totalFollowerCount = crowd != null ? crowd.TotalCount : 0;
+            Debug.Log($"[LevelLoader] Staircase: crowd={crowd != null}, followers={totalFollowers}, total={totalFollowerCount}");
 
             if (crowd == null || totalFollowers <= 0)
             {
+                Debug.Log("[LevelLoader] No followers, skipping staircase");
                 yield return new WaitForSecondsRealtime(1f);
                 if (GameManager.Instance != null)
                 {
@@ -627,52 +923,97 @@ namespace SnowmanCount.Gameplay
             float pivotX = finishPos.x;
             float pivotZ = finishPos.z + roadW * 0.4f;
             float pivotY = 0f;
-            float stepRise = 0.55f;
-            float stepBack = 0.8f;
-            float unitSpacingZ = 0.55f;
+            float stepRise = 0.5f;
+            float stepBack = 0.9f;
+            float unitSpacingZ = 0.62f;
+
+            stepWidths.Clear();
+            stepSpacingsX.Clear();
+            stepCols.Clear();
+            stepDepths.Clear();
 
             int stepsNeeded = 0;
             int rem = totalFollowers;
-            while (rem > 0 && stepsNeeded < 16)
+            while (rem > 0 && stepsNeeded < 60)
             {
-                int cols = Mathf.Max(1, 14 - stepsNeeded);
-                int rows = Mathf.Max(1, 6 - stepsNeeded / 2);
+                int cols = GetStairCols(stepsNeeded);
+                int rows = GetStairRows(stepsNeeded);
                 rem -= cols * rows;
                 stepsNeeded++;
             }
+
+            stepsNeeded = Mathf.Max(stepsNeeded, GetMinimumVisibleStairCount(totalFollowers));
+
+            Debug.Log($"[LevelLoader] Steps needed: {stepsNeeded}");
 
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.StartCoroutine(ZoomOutForStaircase(stepsNeeded));
             }
 
-            float maxCols = 14f;
             for (int s = 0; s < stepsNeeded; s++)
             {
-                int cols = Mathf.Max(1, 14 - s);
-                int rows = Mathf.Max(1, 6 - s / 2);
-                float ratio = cols / maxCols;
-                float stepW = roadW * 0.85f * ratio;
+                int cols = GetStairCols(s);
+                int rows = GetStairRows(s);
+                float stepW = roadW * GetStairWidthRatio(s, stepsNeeded);
                 float stepD = Mathf.Max(0.6f, rows * unitSpacingZ + 0.2f);
                 float centerZ = pivotZ + s * stepBack;
                 float spacingX = stepW / (cols + 1);
+                float stepY = pivotY + s * stepRise;
 
-                GameObject step = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                step.name = $"StairStep_{s}";
-                step.transform.localScale = new Vector3(stepW, 0.2f, stepD);
-                step.transform.position = new Vector3(pivotX, pivotY + s * stepRise, centerZ);
+                // Tread (horizontal surface)
+                GameObject tread = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                tread.name = $"Tread_{s}";
+                tread.transform.localScale = new Vector3(stepW, 0.2f, stepD);
+                tread.transform.position = new Vector3(pivotX, stepY, centerZ);
+                Renderer treadR = tread.GetComponent<Renderer>();
+                if (treadR != null) treadR.material = GetGoldEmissionMaterial();
+                Destroy(tread.GetComponent<Collider>());
 
-                Renderer r = step.GetComponent<Renderer>();
-                if (r != null)
+                // Riser (vertical front face, not for first step which sits on ground)
+                if (s > 0)
                 {
-                    r.material.color = new Color(1f, 0.78f, 0.06f);
-                    r.material.SetFloat("_Metallic", 0.6f);
+                    float riserHeight = stepRise;
+                    float riserThickness = 0.08f;
+                    float riserY = stepY - riserHeight / 2f;
+                    float riserZ = centerZ - stepD / 2f;
+
+                    GameObject riser = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    riser.name = $"Riser_{s}";
+                    riser.transform.localScale = new Vector3(stepW, riserHeight, riserThickness);
+                    riser.transform.position = new Vector3(pivotX, riserY, riserZ);
+                    Renderer riserR = riser.GetComponent<Renderer>();
+                    if (riserR != null) riserR.material = GetGoldDarkMaterial();
+                    Destroy(riser.GetComponent<Collider>());
                 }
-                Destroy(step.GetComponent<Collider>());
+
+                // Side rails (left and right)
+                float railWidth = 0.2f;
+                float railHeight = 0.5f;
+                float leftRailX = pivotX - stepW / 2f - railWidth / 2f;
+                float rightRailX = pivotX + stepW / 2f + railWidth / 2f;
+
+                GameObject leftRail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leftRail.name = $"Rail_L_{s}";
+                leftRail.transform.localScale = new Vector3(railWidth, railHeight, stepD);
+                leftRail.transform.position = new Vector3(leftRailX, stepY + railHeight / 2f, centerZ);
+                Renderer lr = leftRail.GetComponent<Renderer>();
+                if (lr != null) lr.material = GetGoldDarkMaterial();
+                Destroy(leftRail.GetComponent<Collider>());
+
+                GameObject rightRail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rightRail.name = $"Rail_R_{s}";
+                rightRail.transform.localScale = new Vector3(railWidth, railHeight, stepD);
+                rightRail.transform.position = new Vector3(rightRailX, stepY + railHeight / 2f, centerZ);
+                Renderer rr = rightRail.GetComponent<Renderer>();
+                if (rr != null) rr.material = GetGoldDarkMaterial();
+                Destroy(rightRail.GetComponent<Collider>());
+
+                BuildStairBlockDetails(s, cols, rows, pivotX, centerZ, stepY, stepW, stepD, stepRise, unitSpacingZ);
 
                 float multVal = 1.0f + (s + 1) * 0.1f;
                 GameObject labelObj = new GameObject($"StepLabel_{s}");
-                labelObj.transform.SetParent(step.transform);
+                labelObj.transform.SetParent(tread.transform);
                 labelObj.transform.localPosition = new Vector3(0f, 0.3f, 0f);
                 TextMesh labelText = labelObj.AddComponent<TextMesh>();
                 labelText.text = $"\u00D7{multVal:F1}";
@@ -686,6 +1027,7 @@ namespace SnowmanCount.Gameplay
                 stepWidths.Add(stepW);
                 stepSpacingsX.Add(spacingX);
                 stepCols.Add(cols);
+                stepDepths.Add(stepD);
                 yield return new WaitForSecondsRealtime(0.06f);
             }
 
@@ -696,10 +1038,11 @@ namespace SnowmanCount.Gameplay
             for (int s = 0; s < stepsNeeded; s++)
             {
                 int cols = stepCols[s];
-                int rows = Mathf.Max(1, 6 - s / 2);
+                int rows = GetStairRows(s);
                 float centerZ = pivotZ + s * stepBack;
                 float stepDuration = Mathf.Lerp(0.15f, 0.35f, (float)s / stepsNeeded);
                 float spacingX = stepSpacingsX[s];
+                float stepY = pivotY + s * stepRise;
 
                 for (int r = 0; r < rows && followerIdx < totalFollowers; r++)
                 {
@@ -723,7 +1066,7 @@ namespace SnowmanCount.Gameplay
 
                         float xOff = (c - (cols - 1) * 0.5f) * spacingX;
                         float zOff = (r - (rows - 1) * 0.5f) * unitSpacingZ;
-                        float targetY = pivotY + s * stepRise + 0.1f;
+                        float targetY = stepY + 0.1f;
 
                         float stepMult = 1.0f + (s + 1) * 0.1f;
                         if (stepMult > highestMultiplier)
@@ -737,10 +1080,77 @@ namespace SnowmanCount.Gameplay
                             centerZ + zOff
                         );
 
+                        // Individual follower block
+                        GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        block.name = $"FollowerBlock_{followerIdx}";
+                        float blockSize = 0.35f;
+                        float blockHeight = 0.15f;
+                        block.transform.localScale = new Vector3(blockSize, blockHeight, blockSize);
+                        block.transform.position = new Vector3(endPos.x, stepY, endPos.z);
+                        Renderer blockR = block.GetComponent<Renderer>();
+                        if (blockR != null) blockR.material = GetGoldEmissionMaterial();
+                        Destroy(block.GetComponent<Collider>());
+
                         StartCoroutine(HopToPosition(f, endPos, stepDuration));
                         yield return new WaitForSecondsRealtime(0.02f);
                     }
                 }
+            }
+
+            // Crown ornament at the top
+            if (stepsNeeded > 0)
+            {
+                int topS = stepsNeeded - 1;
+                float topY = pivotY + topS * stepRise;
+                float topZ = pivotZ + topS * stepBack;
+                float crownY = topY + 0.3f;
+
+                // Crown base ring
+                GameObject crownBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                crownBase.name = "Crown_Base";
+                crownBase.transform.localScale = new Vector3(1.6f, 0.2f, 1.6f);
+                crownBase.transform.position = new Vector3(pivotX, crownY, topZ);
+                Renderer cbR = crownBase.GetComponent<Renderer>();
+                if (cbR != null) cbR.material = GetGoldEmissionMaterial();
+                Destroy(crownBase.GetComponent<Collider>());
+
+                // Crown top ring (smaller)
+                GameObject crownTop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                crownTop.name = "Crown_Top";
+                crownTop.transform.localScale = new Vector3(1.1f, 0.15f, 1.1f);
+                crownTop.transform.position = new Vector3(pivotX, crownY + 0.35f, topZ);
+                Renderer ctR = crownTop.GetComponent<Renderer>();
+                if (ctR != null) ctR.material = GetGoldEmissionMaterial();
+                Destroy(crownTop.GetComponent<Collider>());
+
+                // Crown spikes
+                int spikeCount = 5;
+                for (int i = 0; i < spikeCount; i++)
+                {
+                    float angle = (360f / spikeCount) * i * Mathf.Deg2Rad;
+                    float radius = 0.75f;
+                    GameObject spike = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    spike.name = $"Crown_Spike_{i}";
+                    spike.transform.localScale = new Vector3(0.1f, 0.45f, 0.1f);
+                    spike.transform.position = new Vector3(
+                        pivotX + Mathf.Cos(angle) * radius,
+                        crownY + 0.3f,
+                        topZ + Mathf.Sin(angle) * radius
+                    );
+                    spike.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+                    Renderer spikeR = spike.GetComponent<Renderer>();
+                    if (spikeR != null) spikeR.material = GetGoldEmissionMaterial();
+                    Destroy(spike.GetComponent<Collider>());
+                }
+
+                // Crown center orb
+                GameObject orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                orb.name = "Crown_Orb";
+                orb.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+                orb.transform.position = new Vector3(pivotX, crownY + 0.55f, topZ);
+                Renderer orbR = orb.GetComponent<Renderer>();
+                if (orbR != null) orbR.material = GetGoldEmissionMaterial();
+                Destroy(orb.GetComponent<Collider>());
             }
 
             yield return new WaitForSecondsRealtime(1f);
@@ -797,15 +1207,15 @@ namespace SnowmanCount.Gameplay
 
             Vector3 startPos = cam.transform.position;
             Vector3 startAngles = cam.transform.eulerAngles;
-            float pyramidHeight = stepCount * 0.6f;
+            float pyramidHeight = stepCount * 0.5f;
             float pyramidDepth = stepCount * 0.9f;
-            Vector3 targetPos = startPos + new Vector3(0f, pyramidHeight * 0.7f + 2f, -4f);
+            Vector3 targetPos = startPos + new Vector3(0f, pyramidHeight * 0.65f + 3f, pyramidDepth * -0.38f - 4f);
             Vector3 targetAngles = new Vector3(
-                Mathf.Lerp(startAngles.x, 10f, 0.5f),
+                Mathf.Lerp(startAngles.x, 18f, 0.55f),
                 startAngles.y,
                 startAngles.z
             );
-            float duration = 1.5f;
+            float duration = 2.4f;
             float elapsed = 0f;
 
             while (elapsed < duration)

@@ -32,8 +32,8 @@ MonoBehaviour:
     subValue: 1
   - distance: 115
     objectType: Hole
-    value: 
-    subValue: 
+    value: left
+    subValue: left
   - distance: 130
     objectType: Gate
     value: +15
@@ -41,7 +41,7 @@ MonoBehaviour:
   - distance: 170
     objectType: Enemy
     value: Flame
-    subValue: 30
+    subValue: 5
   - distance: 200
     objectType: Gate
     value: -10
@@ -57,7 +57,7 @@ MonoBehaviour:
   - distance: 310
     objectType: Enemy
     value: Flame
-    subValue: 50
+    subValue: 8
   - distance: 350
     objectType: Gate
     value: x2
@@ -73,12 +73,52 @@ MonoBehaviour:
   - distance: 470
     objectType: Enemy
     value: Flame
-    subValue: 70
+    subValue: 10
   - distance: 510
     objectType: Gate
     value: x4
     subValue: +100
   - distance: 560
-    objectType: Boss
-    value: 30
-    subValue: 6
+    objectType: Finish
+    value: 
+    subValue: 
+  - distance: 18
+    objectType: obstacle
+    value: saw
+    subValue: 1
+  - distance: 55
+    objectType: obstacle
+    value: wall
+    subValue: left,1
+  - distance: 90
+    objectType: obstacle
+    value: spinner
+    subValue: 1
+  - distance: 150
+    objectType: obstacle
+    value: wall
+    subValue: right,2
+  - distance: 185
+    objectType: obstacle
+    value: saw
+    subValue: 1
+  - distance: 260
+    objectType: obstacle
+    value: spinner
+    subValue: 2
+  - distance: 330
+    objectType: obstacle
+    value: wall
+    subValue: center,1
+  - distance: 370
+    objectType: obstacle
+    value: saw
+    subValue: 2
+  - distance: 450
+    objectType: obstacle
+    value: spinner
+    subValue: 1
+  - distance: 490
+    objectType: obstacle
+    value: wall
+    subValue: left,2

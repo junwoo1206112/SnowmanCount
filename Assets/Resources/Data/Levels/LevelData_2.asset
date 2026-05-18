@@ -28,8 +28,8 @@ MonoBehaviour:
     subValue: 1
   - distance: 95
     objectType: Hole
-    value: 
-    subValue: 
+    value: left
+    subValue: left
   - distance: 120
     objectType: Enemy
     value: Flame
@@ -77,4 +77,4 @@ MonoBehaviour:
   - distance: 550
     objectType: Boss
     value: 50
-    subValue: 8
+    subValue: 
