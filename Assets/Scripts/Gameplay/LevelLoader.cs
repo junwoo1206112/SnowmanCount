@@ -1078,6 +1078,19 @@ namespace SnowmanCount.Gameplay
 
                 BuildStairBlockDetails(s, cols, rows, pivotX, centerZ, stepY, stepW, stepD, stepRise, unitSpacingZ);
 
+                float multVal = 1.0f + (s + 1) * 0.1f;
+                GameObject labelObj = new GameObject($"StepLabel_{s}");
+                labelObj.transform.SetParent(tread.transform);
+                labelObj.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+                TextMesh labelText = labelObj.AddComponent<TextMesh>();
+                labelText.text = $"\u00D7{multVal:F1}";
+                labelText.fontSize = 100;
+                labelText.characterSize = 0.12f;
+                labelText.anchor = TextAnchor.MiddleCenter;
+                labelText.alignment = TextAlignment.Center;
+                labelText.fontStyle = FontStyle.Bold;
+                labelText.color = Color.white;
+
                 stepWidths.Add(stepW);
                 stepSpacingsX.Add(spacingX);
                 stepCols.Add(cols);

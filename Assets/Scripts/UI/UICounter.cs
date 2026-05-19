@@ -11,7 +11,7 @@ namespace SnowmanCount.UI
         [Header("UI References")]
         [SerializeField] private Text counterText;
         [SerializeField] private Text gameOverText;
-        [SerializeField] private string prefix = "Snow Power: ";
+        [SerializeField] private string prefix = "";
 
         [Header("Animation")]
         [SerializeField] private float popScale = 1.3f;
@@ -70,10 +70,6 @@ namespace SnowmanCount.UI
 
         private void UpdateText(int count)
         {
-            if (counterText != null)
-            {
-                counterText.text = $"{prefix}{count}";
-            }
         }
 
         private IEnumerator PlayPopRoutine()
