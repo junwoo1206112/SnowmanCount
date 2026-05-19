@@ -621,7 +621,7 @@ namespace SnowmanCount.Gameplay
             }
 
             GameObject gate = Instantiate(gatePrefab, position, Quaternion.identity);
-            gate.transform.localScale = new Vector3(5f, 4f, 1f);
+            gate.transform.localScale = new Vector3(8f, 4f, 1f);
             gate.AddComponent<WorldMover>();
 
             GateController gateCtrl = gate.GetComponent<GateController>();
