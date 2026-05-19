@@ -382,7 +382,14 @@ namespace SnowmanCount.Gameplay
         {
             if (follower == null) return;
             TotalCount = Mathf.Max(0, TotalCount - 1);
-            if (!activeCrowd.Remove(follower)) return;
+            if (!activeCrowd.Remove(follower))
+            {
+                if (TotalCount <= 0)
+                {
+                    NotifyDepleted();
+                }
+                return;
+            }
 
             objectPooler.ReturnToPool(follower);
             NotifyCountChanged();

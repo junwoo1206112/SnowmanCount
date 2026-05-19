@@ -10,7 +10,7 @@ namespace SnowmanCount.Gameplay
         [Header("Movement Settings")]
         [SerializeField] private float forwardSpeed = 5f;
         [SerializeField] private float swerveSpeed = 20f;
-        [SerializeField] private float xBound = 30f;
+        [SerializeField] private float xBound = 45f;
         public float XBound => xBound;
 
         private PlayerInput playerInput;
