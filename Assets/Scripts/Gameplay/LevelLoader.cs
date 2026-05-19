@@ -214,6 +214,10 @@ namespace SnowmanCount.Gameplay
 
         private enum HoleType { None, Left, Right, Full }
 
+        [Header("Level Spacing")]
+        [SerializeField] private float distanceStartOffset = 12f;
+        [SerializeField] private float distanceSpacingMultiplier = 1.5f;
+
         private void SpawnLevel(LevelData data)
         {
             if (data == null) return;
@@ -221,16 +225,14 @@ namespace SnowmanCount.Gameplay
 
             float maxDistance = 0f;
             foreach (var row in data.rows) if (row.distance > maxDistance) maxDistance = row.distance;
-            // 마지막 적 이후로도 조금 더 도로를 깔아줌
-            maxDistance += 80f;
+            maxDistance = maxDistance * distanceSpacingMultiplier + distanceStartOffset + 80f;
 
             CreateAllClearDetector();
 
-            // --- 도로 타일 생성 (카운트 마스터 방식) ---
-            float segmentLength = 5f; // 5m 단위로 도로 조각 생성
-            for (float z = 0; z < maxDistance; z += segmentLength)
+            float segmentLength = 5f;
+            for (float z = distanceStartOffset; z < maxDistance; z += segmentLength)
             {
-                HoleType hole = GetHoleTypeAt(z, data.rows);
+                HoleType hole = GetHoleTypeAt((z - distanceStartOffset) / distanceSpacingMultiplier, data.rows);
                 
                 if (hole != HoleType.Full)
                 {
@@ -245,7 +247,7 @@ namespace SnowmanCount.Gameplay
 
             foreach (LevelRow row in data.rows)
             {
-                if (row.objectType.ToLower() == "hole") continue; // 구멍은 타일 시스템에서 처리
+                if (row.objectType.ToLower() == "hole") continue;
                 SpawnObject(row);
             }
 
@@ -459,7 +461,7 @@ namespace SnowmanCount.Gameplay
 
         private void SpawnObject(LevelRow row)
         {
-            Vector3 position = new Vector3(0f, 0.5f, row.distance);
+            Vector3 position = new Vector3(0f, 0.5f, distanceStartOffset + row.distance * distanceSpacingMultiplier);
 
             switch (row.objectType.ToLower())
             {
