@@ -125,6 +125,25 @@ namespace SnowmanCount.Gameplay
                     follower.transform.position = playerPivot.position + GetPolarOffset(fc.targetAngle, fc.targetRadius);
                 }
             }
+
+            UpdateAllFollowerLabels();
+        }
+
+        private void UpdateAllFollowerLabels()
+        {
+            for (int i = 0; i < activeCrowd.Count; i++)
+            {
+                GameObject follower = activeCrowd[i];
+                Transform labelT = follower.transform.Find("FollowerLabel");
+                if (labelT != null)
+                {
+                    TextMesh tm = labelT.GetComponent<TextMesh>();
+                    if (tm != null)
+                    {
+                        tm.text = (i + 1).ToString();
+                    }
+                }
+            }
         }
 
         private void SetupFollower(GameObject obj)
@@ -147,6 +166,20 @@ namespace SnowmanCount.Gameplay
             if (obj.GetComponent<FollowerComponent>() == null)
             {
                 obj.AddComponent<FollowerComponent>();
+            }
+
+            if (obj.transform.Find("FollowerLabel") == null)
+            {
+                GameObject label = new GameObject("FollowerLabel");
+                label.transform.SetParent(obj.transform);
+                label.transform.localPosition = new Vector3(0f, 1.8f, 0f);
+                TextMesh tm = label.AddComponent<TextMesh>();
+                tm.fontSize = 40;
+                tm.characterSize = 0.08f;
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.fontStyle = FontStyle.Bold;
+                tm.color = Color.white;
             }
         }
 
@@ -330,6 +363,8 @@ namespace SnowmanCount.Gameplay
 
             Debug.Log($"[CrowdController] Removed {count}. Total: {TotalCount}, Visual: {CurrentCount}");
 
+            UpdateAllFollowerLabels();
+
             if (activeCrowd.Count <= 0)
             {
                 NotifyDepleted();
@@ -393,6 +428,7 @@ namespace SnowmanCount.Gameplay
 
             objectPooler.ReturnToPool(follower);
             NotifyCountChanged();
+            UpdateAllFollowerLabels();
 
             if (activeCrowd.Count <= 0)
             {

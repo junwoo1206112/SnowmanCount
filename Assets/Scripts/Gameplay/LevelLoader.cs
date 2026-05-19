@@ -1159,20 +1159,6 @@ namespace SnowmanCount.Gameplay
                         Destroy(block.GetComponent<Collider>());
 
                         StartCoroutine(HopToPosition(f, endPos, stepDuration));
-
-                        // Follower head label (power number)
-                        GameObject headLabel = new GameObject($"PowerLabel_{followerIdx}");
-                        headLabel.transform.SetParent(f.transform);
-                        headLabel.transform.localPosition = new Vector3(0f, 1.8f, 0f);
-                        TextMesh headText = headLabel.AddComponent<TextMesh>();
-                        headText.text = $"{stepMult:F1}";
-                        headText.fontSize = 60;
-                        headText.characterSize = 0.06f;
-                        headText.anchor = TextAnchor.MiddleCenter;
-                        headText.alignment = TextAlignment.Center;
-                        headText.fontStyle = FontStyle.Bold;
-                        headText.color = Color.white;
-
                         yield return new WaitForSecondsRealtime(0.02f);
                     }
                 }
