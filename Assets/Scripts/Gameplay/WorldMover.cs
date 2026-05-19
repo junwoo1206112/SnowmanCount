@@ -55,7 +55,7 @@ namespace SnowmanCount.Gameplay
             if (!canMove) return;
 
             float step = moveSpeed * Time.deltaTime;
-            transform.Translate(Vector3.back * step);
+            transform.Translate(Vector3.back * step, Space.World);
             totalDistanceTraveled += step;
 
             if (transform.position.z < destroyZ)

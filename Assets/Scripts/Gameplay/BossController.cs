@@ -175,7 +175,7 @@ namespace SnowmanCount.Gameplay
             if (GameManager.Instance != null)
             {
                 CrowdController crowd = FindFirstObjectByType<CrowdController>();
-                int count = crowd != null ? crowd.CurrentCount : 0;
+                int count = crowd != null ? crowd.TotalCount : 0;
                 GameManager.Instance.OnBossDefeated(count);
             }
 

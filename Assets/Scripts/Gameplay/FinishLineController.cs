@@ -102,7 +102,7 @@ namespace SnowmanCount.Gameplay
             foreach (var b in bosses) Destroy(b.gameObject);
 
             CrowdController crowd = FindFirstObjectByType<CrowdController>();
-            int crowdCount = crowd != null ? crowd.CurrentCount : -1;
+            int crowdCount = crowd != null ? crowd.TotalCount : -1;
 
             if (GameManager.Instance != null)
             {

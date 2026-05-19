@@ -12,6 +12,7 @@ namespace SnowmanCount.Gameplay
 
         private EnemyAllClearDetector clearDetector;
         private bool isRegistered = false;
+        private TextMesh countLabel;
 
         public void SetEnemyCount(int count)
         {
@@ -34,6 +35,21 @@ namespace SnowmanCount.Gameplay
             // 부모의 트리거는 이제 필요 없음 (개별 미니언이 처리)
             Collider col = GetComponent<Collider>();
             if (col != null) col.enabled = false;
+
+            Transform label = transform.Find("EnemyCountLabel");
+            if (label != null)
+            {
+                countLabel = label.GetComponent<TextMesh>();
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (countLabel == null || Camera.main == null) return;
+
+            Transform labelTransform = countLabel.transform;
+            labelTransform.rotation = Quaternion.LookRotation(
+                labelTransform.position - Camera.main.transform.position);
         }
 
         public void OnMinionDefeated()
@@ -43,7 +59,7 @@ namespace SnowmanCount.Gameplay
             Transform label = transform.Find("EnemyCountLabel");
             if (label != null)
             {
-                TextMesh tm = label.GetComponent<TextMesh>();
+                TextMesh tm = countLabel != null ? countLabel : label.GetComponent<TextMesh>();
                 if (tm != null) tm.text = remainingMinions.ToString();
             }
 

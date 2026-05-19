@@ -89,7 +89,7 @@ namespace SnowmanCount.Gameplay
         {
             GameObject labelObj = new GameObject("CrowdCountLabel");
             crowdCountLabel = labelObj.AddComponent<TextMesh>();
-            crowdCountLabel.text = CurrentCount.ToString();
+            crowdCountLabel.text = TotalCount.ToString();
             crowdCountLabel.fontSize = 200;
             crowdCountLabel.characterSize = 0.08f;
             crowdCountLabel.anchor = TextAnchor.MiddleCenter;
@@ -158,7 +158,7 @@ namespace SnowmanCount.Gameplay
         {
             if (crowdCountLabel != null)
             {
-                crowdCountLabel.text = CurrentCount.ToString();
+                crowdCountLabel.text = TotalCount.ToString();
             }
         }
 
@@ -326,24 +326,12 @@ namespace SnowmanCount.Gameplay
                     return;
             }
 
-            NotifyCountChanged();
-            UpdateCrowdLabel();
         }
 
         public void AddCrowd(int count)
         {
-            TotalCount += count;
-
-            int space = maxFollowers - activeCrowd.Count;
-            int visualCount = Mathf.Min(count, Mathf.Max(0, space));
-
-            if (visualCount > 0)
-            {
-                SpawnFollowers(visualCount);
-            }
-
-            UpdateCrowdLabel();
-            Debug.Log($"[CrowdController] Added {count} (visual:{visualCount}). Total: {TotalCount}, Visual: {CurrentCount}");
+            SetTotalCount(TotalCount + count);
+            Debug.Log($"[CrowdController] Added {count}. Total: {TotalCount}, Visual: {CurrentCount}");
         }
 
         private void OnLeaderHit()
@@ -356,20 +344,10 @@ namespace SnowmanCount.Gameplay
 
         public void RemoveCrowd(int count)
         {
-            TotalCount = Mathf.Max(0, TotalCount - count);
-
-            int removeCount = Mathf.Min(count, activeCrowd.Count);
-
-            for (int i = 0; i < removeCount; i++)
-            {
-                RemoveLastFollower();
-            }
-
+            SetTotalCount(TotalCount - count);
             Debug.Log($"[CrowdController] Removed {count}. Total: {TotalCount}, Visual: {CurrentCount}");
 
-            UpdateCrowdLabel();
-
-            if (activeCrowd.Count <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }
@@ -377,13 +355,7 @@ namespace SnowmanCount.Gameplay
 
         private void MultiplyCrowd(int multiplier)
         {
-            int currentCount = activeCrowd.Count;
-            int targetCount = currentCount * multiplier - currentCount;
-
-            if (targetCount > 0)
-            {
-                AddCrowd(targetCount);
-            }
+            SetTotalCount(TotalCount * multiplier);
         }
 
         private void DivideCrowd(int divisor)
@@ -394,14 +366,29 @@ namespace SnowmanCount.Gameplay
                 return;
             }
 
-            int currentCount = activeCrowd.Count;
-            int targetCount = Mathf.Max(0, currentCount / divisor);
-            int removeCount = currentCount - targetCount;
+            SetTotalCount(TotalCount / divisor);
+        }
 
-            if (removeCount > 0)
+        private void SetTotalCount(int newTotalCount)
+        {
+            TotalCount = Mathf.Max(0, newTotalCount);
+
+            int targetVisualCount = Mathf.Min(TotalCount, maxFollowers);
+
+            if (activeCrowd.Count < targetVisualCount)
             {
-                RemoveCrowd(removeCount);
+                SpawnFollowers(targetVisualCount - activeCrowd.Count);
             }
+            else
+            {
+                while (activeCrowd.Count > targetVisualCount)
+                {
+                    RemoveLastFollower();
+                }
+            }
+
+            NotifyCountChanged();
+            UpdateCrowdLabel();
         }
 
         private void RemoveLastFollower()
@@ -420,10 +407,10 @@ namespace SnowmanCount.Gameplay
         public void RemoveSpecificFollower(GameObject follower)
         {
             if (follower == null) return;
-            TotalCount = Mathf.Max(0, TotalCount - 1);
+
             if (!activeCrowd.Remove(follower))
             {
-                if (activeCrowd.Count <= 0)
+                if (TotalCount <= 0)
                 {
                     NotifyDepleted();
                 }
@@ -431,10 +418,9 @@ namespace SnowmanCount.Gameplay
             }
 
             objectPooler.ReturnToPool(follower);
-            NotifyCountChanged();
-            UpdateCrowdLabel();
+            SetTotalCount(TotalCount - 1);
 
-            if (activeCrowd.Count <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }
@@ -445,11 +431,9 @@ namespace SnowmanCount.Gameplay
             if (follower == null) return;
             if (!activeCrowd.Remove(follower)) return;
 
-            TotalCount = Mathf.Max(0, TotalCount - 1);
-            NotifyCountChanged();
-            UpdateCrowdLabel();
+            SetTotalCount(TotalCount - 1);
 
-            if (activeCrowd.Count <= 0)
+            if (TotalCount <= 0)
             {
                 NotifyDepleted();
             }

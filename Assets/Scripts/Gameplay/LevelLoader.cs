@@ -402,21 +402,25 @@ namespace SnowmanCount.Gameplay
             enemy.RegisterAsWave();
 
             SpawnMultiRingFormation(enemyGroupObj.transform, enemyCount, enemy);
+            CreateEnemyCountLabel(enemyGroupObj.transform, enemyCount);
 
-            // Enemy centralized count label
+            Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
+        }
+
+        private void CreateEnemyCountLabel(Transform parent, int count)
+        {
             GameObject enemyCountLabel = new GameObject("EnemyCountLabel");
-            enemyCountLabel.transform.SetParent(enemyGroupObj.transform);
+            enemyCountLabel.transform.SetParent(parent);
             enemyCountLabel.transform.localPosition = new Vector3(0f, 2.5f, 0f);
+
             TextMesh enemyCountText = enemyCountLabel.AddComponent<TextMesh>();
-            enemyCountText.text = enemyCount.ToString();
-            enemyCountText.fontSize = 80;
+            enemyCountText.text = count.ToString();
+            enemyCountText.fontSize = 120;
             enemyCountText.characterSize = 0.08f;
             enemyCountText.anchor = TextAnchor.MiddleCenter;
             enemyCountText.alignment = TextAlignment.Center;
             enemyCountText.fontStyle = FontStyle.Bold;
             enemyCountText.color = Color.red;
-
-            Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
         }
 
         private void SpawnMultiRingFormation(Transform parent, int count, EnemyGroup group)
@@ -661,6 +665,7 @@ namespace SnowmanCount.Gameplay
             enemyGroupObj.AddComponent<WorldMover>();
 
             SpawnMultiRingFormation(enemyGroupObj.transform, count, enemy);
+            CreateEnemyCountLabel(enemyGroupObj.transform, count);
 
             Debug.Log($"[LevelLoader] Enemy at {position}: {enemyType} x{count}");
         }

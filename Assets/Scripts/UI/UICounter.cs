@@ -70,6 +70,10 @@ namespace SnowmanCount.UI
 
         private void UpdateText(int count)
         {
+            if (counterText != null)
+            {
+                counterText.text = $"{prefix}{count}";
+            }
         }
 
         private IEnumerator PlayPopRoutine()
