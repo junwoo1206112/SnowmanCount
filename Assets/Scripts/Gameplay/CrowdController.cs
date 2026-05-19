@@ -330,7 +330,7 @@ namespace SnowmanCount.Gameplay
 
             Debug.Log($"[CrowdController] Removed {count}. Total: {TotalCount}, Visual: {CurrentCount}");
 
-            if (TotalCount <= 0)
+            if (activeCrowd.Count <= 0)
             {
                 NotifyDepleted();
             }
@@ -384,7 +384,7 @@ namespace SnowmanCount.Gameplay
             TotalCount = Mathf.Max(0, TotalCount - 1);
             if (!activeCrowd.Remove(follower))
             {
-                if (TotalCount <= 0)
+                if (activeCrowd.Count <= 0)
                 {
                     NotifyDepleted();
                 }
@@ -394,7 +394,7 @@ namespace SnowmanCount.Gameplay
             objectPooler.ReturnToPool(follower);
             NotifyCountChanged();
 
-            if (TotalCount <= 0)
+            if (activeCrowd.Count <= 0)
             {
                 NotifyDepleted();
             }
@@ -405,10 +405,9 @@ namespace SnowmanCount.Gameplay
             if (follower == null) return;
             if (!activeCrowd.Remove(follower)) return;
 
-            // 대형 재계산 제거
             NotifyCountChanged();
 
-            if (TotalCount <= 0)
+            if (activeCrowd.Count <= 0)
             {
                 NotifyDepleted();
             }
