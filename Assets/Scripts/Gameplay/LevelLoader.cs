@@ -571,9 +571,8 @@ namespace SnowmanCount.Gameplay
         {
             if (gatePrefab == null) return;
 
-            float xBound = 15f;
-            SwerveMovement sm = FindFirstObjectByType<SwerveMovement>();
-            if (sm != null) xBound = sm.XBound;
+            float totalWidth = GetTotalWidth();
+            float halfRoad = totalWidth * 0.5f;
 
             HoleType hole = GetHoleTypeAt(position.z, currentLevelData.rows);
             
@@ -582,17 +581,17 @@ namespace SnowmanCount.Gameplay
 
             if (hole == HoleType.Left)
             {
-                leftX = xBound * 0.2f;
-                rightX = xBound * 0.8f;
+                leftX = -halfRoad * 0.15f;
+                rightX = halfRoad * 0.7f;
             }
             else if (hole == HoleType.Right)
             {
-                leftX = -xBound * 0.8f;
-                rightX = -xBound * 0.2f;
+                leftX = -halfRoad * 0.7f;
+                rightX = halfRoad * 0.15f;
             }
             else
             {
-                float spacing = xBound * 0.5f; 
+                float spacing = halfRoad * 0.55f;
                 leftX = -spacing;
                 rightX = spacing;
             }
