@@ -702,30 +702,90 @@ namespace SnowmanCount.Gameplay
 
         private void SpawnSaw(Vector3 position, string damageValue)
         {
-            GameObject saw = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            saw.name = "Saw_Obstacle";
-            saw.transform.position = position;
-            saw.transform.localScale = new Vector3(2f, 0.3f, 2f);
+            GameObject root = new GameObject("Saw_Obstacle");
+            root.transform.position = position;
+            root.AddComponent<SawController>();
+            root.AddComponent<WorldMover>();
 
-            Renderer renderer = saw.GetComponent<Renderer>();
-            if (renderer != null)
+            // 1. Blade body (main disc)
+            GameObject blade = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            blade.name = "SawBlade";
+            blade.transform.SetParent(root.transform);
+            blade.transform.localPosition = Vector3.zero;
+            blade.transform.localScale = new Vector3(1.8f, 0.06f, 1.8f);
+            Renderer bladeR = blade.GetComponent<Renderer>();
+            if (bladeR != null)
             {
-                renderer.material.color = new Color(0.6f, 0.6f, 0.6f);
-                renderer.material.SetFloat("_Metallic", 0.8f);
+                bladeR.material.color = new Color(0.65f, 0.65f, 0.65f);
+                bladeR.material.SetFloat("_Metallic", 0.9f);
+                bladeR.material.SetFloat("_Smoothness", 0.5f);
+            }
+            Destroy(blade.GetComponent<Collider>());
+
+            // 2. Blade teeth around the edge
+            int toothCount = 12;
+            for (int i = 0; i < toothCount; i++)
+            {
+                float angle = (360f / toothCount) * i * Mathf.Deg2Rad;
+                float radius = 0.95f;
+                GameObject tooth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                tooth.name = $"SawTooth_{i}";
+                tooth.transform.SetParent(root.transform);
+                tooth.transform.localPosition = new Vector3(
+                    Mathf.Cos(angle) * radius,
+                    0f,
+                    Mathf.Sin(angle) * radius
+                );
+                tooth.transform.localScale = new Vector3(0.12f, 0.06f, 0.2f);
+                tooth.transform.localRotation = Quaternion.Euler(0f, (360f / toothCount) * i, 0f);
+                Renderer toothR = tooth.GetComponent<Renderer>();
+                if (toothR != null)
+                {
+                    toothR.material.color = new Color(0.5f, 0.5f, 0.5f);
+                    toothR.material.SetFloat("_Metallic", 0.8f);
+                }
+                Destroy(tooth.GetComponent<Collider>());
             }
 
-            Collider col = saw.GetComponent<Collider>();
-            if (col != null) col.isTrigger = true;
+            // 3. Center hub
+            GameObject hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            hub.name = "SawHub";
+            hub.transform.SetParent(root.transform);
+            hub.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            hub.transform.localScale = new Vector3(0.3f, 0.08f, 0.3f);
+            Renderer hubR = hub.GetComponent<Renderer>();
+            if (hubR != null)
+            {
+                hubR.material.color = new Color(0.3f, 0.3f, 0.3f);
+                hubR.material.SetFloat("_Metallic", 0.6f);
+            }
+            Destroy(hub.GetComponent<Collider>());
 
-            ObstacleController obstacleCtrl = saw.AddComponent<ObstacleController>();
+            // 4. Inner ring detail (thin cylinder)
+            GameObject innerRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            innerRing.name = "SawInnerRing";
+            innerRing.transform.SetParent(root.transform);
+            innerRing.transform.localPosition = new Vector3(0f, -0.03f, 0f);
+            innerRing.transform.localScale = new Vector3(1.0f, 0.02f, 1.0f);
+            Renderer ringR = innerRing.GetComponent<Renderer>();
+            if (ringR != null)
+            {
+                ringR.material.color = new Color(0.4f, 0.4f, 0.4f);
+                ringR.material.SetFloat("_Metallic", 0.7f);
+            }
+            Destroy(innerRing.GetComponent<Collider>());
+
+            // 5. Trigger collider on root
+            SphereCollider trigger = root.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 1f;
+
+            ObstacleController obstacleCtrl = root.AddComponent<ObstacleController>();
             obstacleCtrl.SetObstacleType(ObstacleType.Saw);
             if (int.TryParse(damageValue, out int damage))
             {
                 obstacleCtrl.SetDamage(damage);
             }
-
-            saw.AddComponent<SawController>();
-            saw.AddComponent<WorldMover>();
 
             Debug.Log($"[LevelLoader] Saw at {position}, damage: {damageValue}");
         }
@@ -790,6 +850,7 @@ namespace SnowmanCount.Gameplay
             root.AddComponent<WorldMover>();
             root.AddComponent<SpinnerController>();
 
+            // Bar (visual only, collider on root)
             GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bar.name = "SpinnerBar";
             bar.transform.SetParent(root.transform);
@@ -802,11 +863,14 @@ namespace SnowmanCount.Gameplay
                 renderer.material.color = new Color(1f, 0.5f, 0f);
                 renderer.material.SetFloat("_Metallic", 0.5f);
             }
+            Destroy(bar.GetComponent<Collider>());
 
-            Collider col = bar.GetComponent<Collider>();
-            if (col != null) col.isTrigger = true;
+            // Trigger + obstacle logic on root
+            BoxCollider trigger = root.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector3(barLength, 0.6f, 0.8f);
 
-            ObstacleController ctrl = bar.AddComponent<ObstacleController>();
+            ObstacleController ctrl = root.AddComponent<ObstacleController>();
             ctrl.SetObstacleType(ObstacleType.Spinner);
             if (int.TryParse(damageValue, out int damage))
             {
