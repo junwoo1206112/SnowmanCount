@@ -798,7 +798,7 @@ namespace SnowmanCount.Gameplay
             float roadW = GetTotalWidth();
             float wallHeight = 2f;
             float wallThickness = 0.4f;
-            float gapWidth = roadW * 0.25f;
+            float gapWidth = roadW * 0.35f;
             float halfRoad = roadW * 0.5f;
 
             float gapCenter = 0f;
