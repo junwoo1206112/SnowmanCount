@@ -403,6 +403,19 @@ namespace SnowmanCount.Gameplay
 
             SpawnMultiRingFormation(enemyGroupObj.transform, enemyCount, enemy);
 
+            // Enemy centralized count label
+            GameObject enemyCountLabel = new GameObject("EnemyCountLabel");
+            enemyCountLabel.transform.SetParent(enemyGroupObj.transform);
+            enemyCountLabel.transform.localPosition = new Vector3(0f, 2.5f, 0f);
+            TextMesh enemyCountText = enemyCountLabel.AddComponent<TextMesh>();
+            enemyCountText.text = enemyCount.ToString();
+            enemyCountText.fontSize = 80;
+            enemyCountText.characterSize = 0.08f;
+            enemyCountText.anchor = TextAnchor.MiddleCenter;
+            enemyCountText.alignment = TextAlignment.Center;
+            enemyCountText.fontStyle = FontStyle.Bold;
+            enemyCountText.color = Color.red;
+
             Debug.Log($"[LevelLoader] Enemy wave at {positionZ}: {enemyCount} enemies");
         }
 
@@ -445,19 +458,6 @@ namespace SnowmanCount.Gameplay
                     EnemyMinion minionCtrl = minion.GetComponent<EnemyMinion>();
                     if (minionCtrl == null) minionCtrl = minion.AddComponent<EnemyMinion>();
                     minionCtrl.Setup(group);
-
-                    // Enemy count label
-                    GameObject enemyLabel = new GameObject($"EnemyLabel_{tempIndex}");
-                    enemyLabel.transform.SetParent(minion.transform);
-                    enemyLabel.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-                    TextMesh enemyText = enemyLabel.AddComponent<TextMesh>();
-                    enemyText.text = (tempIndex + 1).ToString();
-                    enemyText.fontSize = 40;
-                    enemyText.characterSize = 0.06f;
-                    enemyText.anchor = TextAnchor.MiddleCenter;
-                    enemyText.alignment = TextAlignment.Center;
-                    enemyText.fontStyle = FontStyle.Bold;
-                    enemyText.color = Color.red;
 
                     tempIndex++;
                 }

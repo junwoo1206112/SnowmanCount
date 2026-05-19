@@ -40,6 +40,13 @@ namespace SnowmanCount.Gameplay
         {
             remainingMinions--;
 
+            Transform label = transform.Find("EnemyCountLabel");
+            if (label != null)
+            {
+                TextMesh tm = label.GetComponent<TextMesh>();
+                if (tm != null) tm.text = remainingMinions.ToString();
+            }
+
             if (remainingMinions <= 0)
             {
                 if (isRegistered && clearDetector != null)
