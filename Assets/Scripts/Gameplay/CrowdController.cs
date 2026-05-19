@@ -95,7 +95,7 @@ namespace SnowmanCount.Gameplay
             crowdCountLabel.anchor = TextAnchor.MiddleCenter;
             crowdCountLabel.alignment = TextAlignment.Center;
             crowdCountLabel.fontStyle = FontStyle.Bold;
-            crowdCountLabel.color = Color.white;
+            crowdCountLabel.color = Color.green;
             labelTransform = labelObj.transform;
         }
 

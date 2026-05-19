@@ -446,6 +446,19 @@ namespace SnowmanCount.Gameplay
                     if (minionCtrl == null) minionCtrl = minion.AddComponent<EnemyMinion>();
                     minionCtrl.Setup(group);
 
+                    // Enemy count label
+                    GameObject enemyLabel = new GameObject($"EnemyLabel_{tempIndex}");
+                    enemyLabel.transform.SetParent(minion.transform);
+                    enemyLabel.transform.localPosition = new Vector3(0f, 1.2f, 0f);
+                    TextMesh enemyText = enemyLabel.AddComponent<TextMesh>();
+                    enemyText.text = (tempIndex + 1).ToString();
+                    enemyText.fontSize = 40;
+                    enemyText.characterSize = 0.06f;
+                    enemyText.anchor = TextAnchor.MiddleCenter;
+                    enemyText.alignment = TextAlignment.Center;
+                    enemyText.fontStyle = FontStyle.Bold;
+                    enemyText.color = Color.red;
+
                     tempIndex++;
                 }
             }
