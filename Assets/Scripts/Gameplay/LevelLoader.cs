@@ -796,8 +796,8 @@ namespace SnowmanCount.Gameplay
         private void SpawnWall(Vector3 position, string gapPos, string damageValue)
         {
             float roadW = GetTotalWidth();
-            float wallHeight = 3f;
-            float wallThickness = 0.5f;
+            float wallHeight = 2f;
+            float wallThickness = 0.4f;
             float gapWidth = roadW * 0.25f;
             float halfRoad = roadW * 0.5f;
 
