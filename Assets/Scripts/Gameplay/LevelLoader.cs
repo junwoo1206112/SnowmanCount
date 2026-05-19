@@ -230,9 +230,11 @@ namespace SnowmanCount.Gameplay
             CreateAllClearDetector();
 
             float segmentLength = 5f;
-            for (float z = distanceStartOffset; z < maxDistance; z += segmentLength)
+            for (float z = 0; z < maxDistance; z += segmentLength)
             {
-                HoleType hole = GetHoleTypeAt((z - distanceStartOffset) / distanceSpacingMultiplier, data.rows);
+                HoleType hole = z < distanceStartOffset
+                    ? HoleType.None
+                    : GetHoleTypeAt((z - distanceStartOffset) / distanceSpacingMultiplier, data.rows);
                 
                 if (hole != HoleType.Full)
                 {
