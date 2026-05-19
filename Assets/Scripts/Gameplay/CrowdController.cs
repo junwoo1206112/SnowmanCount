@@ -342,6 +342,7 @@ namespace SnowmanCount.Gameplay
                 SpawnFollowers(visualCount);
             }
 
+            UpdateCrowdLabel();
             Debug.Log($"[CrowdController] Added {count} (visual:{visualCount}). Total: {TotalCount}, Visual: {CurrentCount}");
         }
 
