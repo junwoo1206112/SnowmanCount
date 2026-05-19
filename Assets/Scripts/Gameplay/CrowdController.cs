@@ -24,6 +24,8 @@ namespace SnowmanCount.Gameplay
         private List<GameObject> activeCrowd = new List<GameObject>();
         private Transform playerPivot;
         private bool canUpdate;
+        private TextMesh crowdCountLabel;
+        private Transform labelTransform;
 
         public event Action<int> OnCrowdCountChanged;
         public event Action OnCrowdDepleted;
@@ -79,6 +81,30 @@ namespace SnowmanCount.Gameplay
             }
 
             SpawnInitialCrowd();
+
+            CreateCrowdLabel();
+        }
+
+        private void CreateCrowdLabel()
+        {
+            GameObject labelObj = new GameObject("CrowdCountLabel");
+            crowdCountLabel = labelObj.AddComponent<TextMesh>();
+            crowdCountLabel.text = CurrentCount.ToString();
+            crowdCountLabel.fontSize = 200;
+            crowdCountLabel.characterSize = 0.08f;
+            crowdCountLabel.anchor = TextAnchor.MiddleCenter;
+            crowdCountLabel.alignment = TextAlignment.Center;
+            crowdCountLabel.fontStyle = FontStyle.Bold;
+            crowdCountLabel.color = Color.white;
+            labelTransform = labelObj.transform;
+        }
+
+        private void LateUpdate()
+        {
+            if (crowdCountLabel == null) return;
+            Vector3 center = playerPivot.position + new Vector3(0f, 3.5f, 0f);
+            labelTransform.position = center;
+            labelTransform.rotation = Quaternion.Euler(0f, 0f, 0f);
         }
 
         private void SpawnInitialCrowd()
@@ -126,23 +152,13 @@ namespace SnowmanCount.Gameplay
                 }
             }
 
-            UpdateAllFollowerLabels();
         }
 
-        private void UpdateAllFollowerLabels()
+        private void UpdateCrowdLabel()
         {
-            for (int i = 0; i < activeCrowd.Count; i++)
+            if (crowdCountLabel != null)
             {
-                GameObject follower = activeCrowd[i];
-                Transform labelT = follower.transform.Find("FollowerLabel");
-                if (labelT != null)
-                {
-                    TextMesh tm = labelT.GetComponent<TextMesh>();
-                    if (tm != null)
-                    {
-                        tm.text = (i + 1).ToString();
-                    }
-                }
+                crowdCountLabel.text = CurrentCount.ToString();
             }
         }
 
@@ -166,20 +182,6 @@ namespace SnowmanCount.Gameplay
             if (obj.GetComponent<FollowerComponent>() == null)
             {
                 obj.AddComponent<FollowerComponent>();
-            }
-
-            if (obj.transform.Find("FollowerLabel") == null)
-            {
-                GameObject label = new GameObject("FollowerLabel");
-                label.transform.SetParent(obj.transform);
-                label.transform.localPosition = new Vector3(0f, 1.8f, 0f);
-                TextMesh tm = label.AddComponent<TextMesh>();
-                tm.fontSize = 40;
-                tm.characterSize = 0.08f;
-                tm.anchor = TextAnchor.MiddleCenter;
-                tm.alignment = TextAlignment.Center;
-                tm.fontStyle = FontStyle.Bold;
-                tm.color = Color.white;
             }
         }
 
@@ -363,7 +365,7 @@ namespace SnowmanCount.Gameplay
 
             Debug.Log($"[CrowdController] Removed {count}. Total: {TotalCount}, Visual: {CurrentCount}");
 
-            UpdateAllFollowerLabels();
+            UpdateCrowdLabel();
 
             if (activeCrowd.Count <= 0)
             {
@@ -428,7 +430,7 @@ namespace SnowmanCount.Gameplay
 
             objectPooler.ReturnToPool(follower);
             NotifyCountChanged();
-            UpdateAllFollowerLabels();
+            UpdateCrowdLabel();
 
             if (activeCrowd.Count <= 0)
             {
