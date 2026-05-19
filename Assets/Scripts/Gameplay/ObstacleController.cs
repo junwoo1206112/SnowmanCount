@@ -18,7 +18,6 @@ namespace SnowmanCount.Gameplay
         [SerializeField] private int damagePerHit = 1;
 
         private CrowdController crowdController;
-        private bool hasTriggered;
 
         public void SetDamage(int damage)
         {
@@ -37,43 +36,15 @@ namespace SnowmanCount.Gameplay
 
         private void OnTriggerEnter(Collider other)
         {
-            if (hasTriggered) return;
-
             FollowerComponent follower = other.GetComponent<FollowerComponent>();
-            if (follower == null && !other.CompareTag("Player")) return;
-
-            hasTriggered = true;
+            if (follower == null) return;
 
             if (crowdController != null)
             {
-                if (follower != null)
-                {
-                    crowdController.RemoveSpecificFollower(other.gameObject);
-                    crowdController.NotifyCountChanged();
-                }
-                else if (other.CompareTag("Player"))
-                {
-                    crowdController.ApplyMathOperation("-", Mathf.Max(1, damagePerHit));
-                }
+                crowdController.RemoveSpecificFollower(other.gameObject);
+                crowdController.NotifyCountChanged();
 
-                Debug.Log($"[ObstacleController] {obstacleType} hit {other.name}. Removed 1 follower.");
-            }
-
-            if (obstacleType == ObstacleType.Wall)
-            {
-                Transform parent = transform.parent;
-                if (parent != null)
-                {
-                    Destroy(parent.gameObject);
-                }
-                else
-                {
-                    Destroy(gameObject);
-                }
-            }
-            else
-            {
-                Destroy(gameObject);
+                Debug.Log($"[ObstacleController] {obstacleType} hit follower. Removed 1 follower.");
             }
         }
     }
