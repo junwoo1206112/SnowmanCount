@@ -1165,7 +1165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: SnowmanCount.UI::SnowmanCount.UI.UICounter
   counterText: {fileID: 1848797952}
   gameOverText: {fileID: 991298349}
-  prefix: 'Snow Power: '
+  prefix: ''
   popScale: 1.3
   popDuration: 0.2
 --- !u!114 &720667121
@@ -1614,7 +1614,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Snow Power: 0'
+  m_Text: ''
 --- !u!222 &1848797953
 CanvasRenderer:
   m_ObjectHideFlags: 0

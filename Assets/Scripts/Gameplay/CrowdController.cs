@@ -327,6 +327,7 @@ namespace SnowmanCount.Gameplay
             }
 
             NotifyCountChanged();
+            UpdateCrowdLabel();
         }
 
         public void AddCrowd(int count)
