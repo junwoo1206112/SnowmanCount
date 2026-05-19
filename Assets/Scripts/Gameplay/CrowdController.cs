@@ -444,7 +444,9 @@ namespace SnowmanCount.Gameplay
             if (follower == null) return;
             if (!activeCrowd.Remove(follower)) return;
 
+            TotalCount = Mathf.Max(0, TotalCount - 1);
             NotifyCountChanged();
+            UpdateCrowdLabel();
 
             if (activeCrowd.Count <= 0)
             {
