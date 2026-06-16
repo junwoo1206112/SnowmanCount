@@ -17,6 +17,6 @@
 
 ## 4. UI 배치 가이드
 
-- [ ] 4.1 Canvas에 LevelText 추가 (상단 중앙, "Level 1")
-- [ ] 4.2 기존 RetryButton 재활용 (GameOver/LevelClear/AllClear 공용)
-- [ ] 4.3 LevelClearText 비활성화 상태로 시작
+- [x] 4.1 Canvas에 LevelText 추가 (상단 중앙, "Level 1")
+- [x] 4.2 기존 RetryButton 재활용 (GameOver/LevelClear/AllClear 공용)
+- [x] 4.3 LevelClearText 비활성화 상태로 시작

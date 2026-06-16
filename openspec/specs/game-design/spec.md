@@ -65,7 +65,7 @@ Distance, ObjectType, Value, SubValue
 ```
 
 - **Distance**: 게이트/장애물이 등장할 Z축 거리
-- **ObjectType**: Gate, Enemy, Obstacle, Finish
+- **ObjectType**: Gate, Enemy, Obstacle, Finish, Boss, Hole
 - **Value**: 연산자(+, -, x, ÷) 또는 적 타입
 - **SubValue**: 수치 또는 적 병력 수
 
@@ -74,6 +74,12 @@ Distance, ObjectType, Value, SubValue
 - 플레이어 진행 거리에 따라 오브젝트를 순차적으로 배치
 - 완료 후 다음 레벨 or 보스전 진입
 
+### All Levels Clear
+- **WHEN** `LevelDataProvider.LoadLevel(levelNumber)` returns null (시트 없음)
+- **THEN** "All Levels Clear!" 메시지 표시 (LevelClearText)
+- **THEN** Retry 버튼 표시 (Level 1로 리셋)
+- **THEN** `Time.timeScale = 0` (일시정지)
+
 ---
 
 ## 4. UI 구성
@@ -81,9 +87,11 @@ Distance, ObjectType, Value, SubValue
 | 요소 | 설명 |
 |------|------|
 | 상단 카운트 | 현재 눈사람 병력 수 (실시간 갱신, pop-up 효과) |
+| 레벨 번호 | 상단 중앙 "Level {N}" (씬 로드 시 업데이트) |
 | 진행 바 | 레벨 진행률 (0% ~ 100%) |
-| 게임 오버 | 병력 0 도달 시 표시, Retry 버튼 |
-| 레벨 클리어 | 보스 처치 or 끝 도달 시 표시, Next 버튼 |
+| 게임 오버 | 병력 0 도달 시 표시, Retry 버튼 (같은 레벨) |
+| 레벨 클리어 | 보스 처치 or 끝 도달 시 병력 수 표시 + 계단 연출 후 Final Score |
+| 올 클리어 | 모든 레벨 완료 시 "All Levels Clear!" + Retry 버튼 (Level 1) |
 
 ---
 
